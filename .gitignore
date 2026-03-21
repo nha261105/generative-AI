@@ -39,6 +39,7 @@ htmlcov/
 Thumbs.db
 .vscode/
 .idea/
+<<<<<<< HEAD
 
 data/chat_history.json
 
@@ -47,3 +48,5 @@ data/faiss_index/
 data/pdfs/
 *.faiss
 *.pkl
+=======
+>>>>>>> d65a4ad (chore: setup project + update readme.md)
