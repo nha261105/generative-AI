@@ -1,81 +1,66 @@
 import streamlit as st
-from langchain_community.document_loaders import PDFPlumberLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_community.llms import Ollama
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
-import tempfile
-import os
 
-st.title("SmartDoc AI 📄")
-st.caption("Upload PDF và đặt câu hỏi")
+from src.presentation.styles import get_css
+from src.presentation.components import (
+    render_sidebar,
+    render_header,
+    render_upload_section,
+    render_pipeline,
+    render_qa_section,
+    render_answer,
+    render_status_fab,
+)
 
-# Upload file
-uploaded_file = st.file_uploader("Chọn file PDF", type=["pdf"])
+# ─── Page config (phải đặt đầu tiên) ──────────────────────────────────────────
+st.set_page_config(
+    page_title="SmartDoc AI",
+    page_icon="📄",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-if uploaded_file:
-    # Lưu file tạm
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        tmp.write(uploaded_file.read())
-        tmp_path = tmp.name
+# ─── Inject CSS từ styles.py ───────────────────────────────────────────────────
+st.markdown(get_css(), unsafe_allow_html=True)
 
-    with st.spinner("Đang xử lý tài liệu..."):
-        # Load
-        loader = PDFPlumberLoader(tmp_path)
-        docs = loader.load()
+# ─── Session state ─────────────────────────────────────────────────────────────
+if "uploaded_file" not in st.session_state:
+    st.session_state.uploaded_file = None
+if "answer" not in st.session_state:
+    st.session_state.answer = None
+if "processing_step" not in st.session_state:
+    st.session_state.processing_step = 1  # 1=reading, 2=embedding, 3=ready
 
-        # Split
-        splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=100
-        )
-        chunks = splitter.split_documents(docs)
-        st.success(f"Đã chia thành {len(chunks)} chunks")
+# ─── Sidebar ───────────────────────────────────────────────────────────────────
+render_sidebar()
 
-        # Embed
-        embedder = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
-            model_kwargs={"device": "cpu"},
-            encode_kwargs={"normalize_embeddings": True}
-        )
+# ─── Header ────────────────────────────────────────────────────────────────────
+render_header()
 
-        # Vector store
-        vector_store = FAISS.from_documents(chunks, embedder)
-        retriever = vector_store.as_retriever(
-            search_type="similarity",
-            search_kwargs={"k": 3}
-        )
-        st.success("Tài liệu đã sẵn sàng!")
+# ─── Upload section ────────────────────────────────────────────────────────────
+uploaded_file = render_upload_section()
+if uploaded_file is not None:
+    st.session_state.uploaded_file = uploaded_file
 
-    # LLM
-    llm = Ollama(model="qwen2.5:7b")
+# ─── Processing pipeline ───────────────────────────────────────────────────────
+render_pipeline(progress=65)
 
-    # Prompt
-    prompt = PromptTemplate(
-        input_variables=["context", "question"],
-        template="""Dùng ngữ cảnh sau để trả lời câu hỏi.
-Nếu không biết, hãy nói không biết. Trả lời ngắn gọn 3-4 câu.
+# ─── Q&A section ───────────────────────────────────────────────────────────────
+question, send_clicked = render_qa_section()
 
-Ngữ cảnh: {context}
-Câu hỏi: {question}
-Trả lời:"""
-    )
+if send_clicked and question:
+    # TODO: thay bằng RAG pipeline thực tế
+    st.session_state.answer = {
+        "text": (
+            "Dựa trên nội dung của tài liệu, mục tiêu chính của chương này là cung cấp cái nhìn "
+            "tổng quan về các thuật toán học máy cơ bản. Tài liệu nhấn mạnh tầm quan trọng của "
+            "việc làm sạch dữ liệu trước khi huấn luyện mô hình (trang 5) và đề cập rằng các mô "
+            "hình tuyến tính thường là điểm bắt đầu tốt nhất cho người mới bắt đầu."
+        ),
+        "source": "Nguồn: trang 5, chương 2",
+    }
 
-    # Chain
-    chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        retriever=retriever,
-        chain_type_kwargs={"prompt": prompt}
-    )
+if st.session_state.answer:
+    render_answer(st.session_state.answer)
 
-    # Input câu hỏi
-    question = st.text_input("Đặt câu hỏi về tài liệu:")
-    if question:
-        with st.spinner("Đang trả lời..."):
-            answer = chain.run(question)
-            st.markdown("**Trả lời:**")
-            st.write(answer)
-
-    os.unlink(tmp_path)
+# ─── Status FAB ────────────────────────────────────────────────────────────────
+render_status_fab()
