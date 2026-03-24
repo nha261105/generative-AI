@@ -11,6 +11,13 @@ html, body, [class*="css"] {
 h1, h2, h3, .font-headline {
     font-family: 'Plus Jakarta Sans', sans-serif;
 }
+div[data-testid="stSidebarHeader"], div[data-testid="stToolbar"] {
+    display: none !important;
+}
+div[data-testid="stMainBlockContainer"] {
+    padding-top: 0;
+    padding-bottom: 0;
+}
 
 /* ── Sidebar ── */
 section[data-testid="stSidebar"] {
@@ -121,13 +128,6 @@ section[data-testid="stSidebar"] .sidebar-title {
 }
 
 /* ── Upload zone ── */
-.upload-card {
-    background: #FFFFFF;
-    border-radius: 1rem;
-    padding: 2rem;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.04);
-    margin-bottom: 1.5rem;
-}
 .upload-dropzone {
     border: 2px dashed #FDC003;
     background: rgba(253,192,3,0.03);

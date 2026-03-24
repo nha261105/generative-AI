@@ -82,7 +82,6 @@ def render_upload_section() -> object:
     Returns:
         uploaded_file: đối tượng file từ st.file_uploader (hoặc None).
     """
-    st.markdown('<div class="upload-card">', unsafe_allow_html=True)
     st.markdown("""
     <div class="upload-dropzone">
         <div class="upload-icon-wrap">☁️</div>
@@ -110,7 +109,6 @@ def render_upload_section() -> object:
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
     return uploaded_file
 
 
