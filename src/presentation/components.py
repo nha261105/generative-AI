@@ -40,7 +40,6 @@ def render_sidebar():
             st.markdown(f'<div class="{cls}">{icon}&nbsp; {label}</div>', unsafe_allow_html=True)
 
         # ── Cấu hình hệ thống ────────────────────────────────────────────────
-        st.markdown("<br>", unsafe_allow_html=True)
         st.markdown('<div class="sidebar-footer">', unsafe_allow_html=True)
         st.markdown('<div class="sidebar-section-label">Cấu hình hệ thống</div>', unsafe_allow_html=True)
         configs = [
@@ -82,18 +81,11 @@ def render_upload_section() -> object:
     Returns:
         uploaded_file: đối tượng file từ st.file_uploader (hoặc None).
     """
-    st.markdown("""
-    <div class="upload-dropzone">
-        <div class="upload-icon-wrap">☁️</div>
-        <h3>Kéo thả file PDF vào đây</h3>
-        <p>hoặc nhấn để chọn file từ máy tính của bạn</p>
-    </div>
-    """, unsafe_allow_html=True)
-
     uploaded_file = st.file_uploader(
-        "Chọn file PDF",
+        "Kéo thả file PDF vào đây",
         type=["pdf"],
-        label_visibility="collapsed",
+        label_visibility="visible",
+        key="pdf_uploader",
     )
 
     if uploaded_file is not None:
@@ -153,7 +145,7 @@ def render_qa_section() -> tuple[str, bool]:
     Returns:
         (question, send_clicked): nội dung câu hỏi và trạng thái nút Gửi.
     """
-    st.markdown('<div class="qa-card">', unsafe_allow_html=True)
+    # st.markdown('<div class="qa-card">', unsafe_allow_html=True)
     st.markdown('<div class="qa-card-label">Đặt câu hỏi</div>', unsafe_allow_html=True)
 
     col_input, col_btn = st.columns([5, 1])
@@ -165,7 +157,6 @@ def render_qa_section() -> tuple[str, bool]:
             key="question_input",
         )
     with col_btn:
-        st.markdown("<br>", unsafe_allow_html=True)
         send_clicked = st.button("Gửi ➤", use_container_width=True, type="primary")
 
     st.markdown("</div>", unsafe_allow_html=True)
