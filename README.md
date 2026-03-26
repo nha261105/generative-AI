@@ -17,7 +17,7 @@
 |--------|------|-----------|
 | Nguyễn Hoàng Anh | 3123410007 | Lead · Setup dự án · Thiết kế hệ thống (Chương 3) · Câu 9, 10 |
 | Đỗ Nhật Huy | _(tự điền)_ | Câu 1, 2 · Tự test câu 1, 2 · UI (chung) |
-| Hồ Hoàng Long | _(tự điền)_ | Câu 3, 4 · Tự test câu 3, 4 · Tổng hợp Chương 6 Testing |
+| Hồ Hoàng Long | 3123560046 | Câu 3, 4 · Tự test câu 3, 4 · Tổng hợp Chương 6 Testing |
 | Bùi Nguyễn Trọng Nghĩa | _(tự điền)_ | Câu 5, 6 · Tự test câu 5, 6 · UI (chung) |
 | Lưu Phùng Khải Nguyên | _(tự điền)_ | Câu 7, 8 · Tự test câu 7, 8 · UI (chung) |
 
