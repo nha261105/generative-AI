@@ -4,7 +4,7 @@ langchain-community==0.3.16
 faiss-cpu==1.9.0
 sentence-transformers
 pdfplumber
-pydf
+pypdf
 torch
 numpy
 pandas
