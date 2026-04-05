@@ -13,17 +13,18 @@
 
 ## 👥 Thành viên nhóm & Phân công
 
-| Họ tên | MSSV | Phụ trách |
-|--------|------|-----------|
-| Nguyễn Hoàng Anh | 3123410007 | Lead · Setup dự án · Thiết kế hệ thống (Chương 3) · Câu 9, 10 |
-| Đỗ Nhật Huy | _(tự điền)_ | Câu 1, 2 · Tự test câu 1, 2 · UI (chung) |
-| Hồ Hoàng Long | 3123560046 | Câu 3, 4 · Tự test câu 3, 4 · Tổng hợp Chương 6 Testing |
-| Bùi Nguyễn Trọng Nghĩa | _(tự điền)_ | Câu 5, 6 · Tự test câu 5, 6 · UI (chung) |
-| Lưu Phùng Khải Nguyên | _(tự điền)_ | Câu 7, 8 · Tự test câu 7, 8 · UI (chung) |
+| Họ tên                 | MSSV        | Phụ trách                                                     |
+| ---------------------- | ----------- | ------------------------------------------------------------- |
+| Nguyễn Hoàng Anh       | 3123410007  | Lead · Setup dự án · Thiết kế hệ thống (Chương 3) · Câu 9, 10 |
+| Đỗ Nhật Huy            | _(tự điền)_ | Câu 1, 2 · Tự test câu 1, 2 · UI (chung)                      |
+| Hồ Hoàng Long          | 3123560046  | Câu 3, 4 · Tự test câu 3, 4 · Tổng hợp Chương 6 Testing       |
+| Bùi Nguyễn Trọng Nghĩa | _(tự điền)_ | Câu 5, 6 · Tự test câu 5, 6 · UI (chung)                      |
+| Lưu Phùng Khải Nguyên  | _(tự điền)_ | Câu 7, 8 · Tự test câu 7, 8 · UI (chung)                      |
 
 ### Chi tiết phân công
 
 #### Nguyễn Hoàng Anh — Lead
+
 - Setup dự án (môi trường, Makefile, app.py cơ bản)
 - Thiết kế hệ thống (Chương 3): kiến trúc, Data Flow, các components
 - Câu 9: Re-ranking với Cross-Encoder
@@ -40,6 +41,7 @@ src/model_layer/llm_interface.py     # Câu 10: Ollama inference tuning
 ```
 
 #### Đỗ Nhật Huy
+
 - Câu 1: Thêm hỗ trợ file DOCX
 - Câu 2: Lưu trữ lịch sử hội thoại
 - Tự viết test cho câu 1, 2
@@ -54,6 +56,7 @@ src/presentation/comp_history.py     # Câu 2: chat history UI
 ```
 
 #### Hồ Hoàng Long
+
 - Câu 3: Thêm nút xóa lịch sử
 - Câu 4: Cải thiện chunk strategy
 - Tự viết test cho câu 3, 4
@@ -68,6 +71,7 @@ src/application/pipeline_chunk.py   # Câu 4: chunk strategy config
 ```
 
 #### Bùi Nguyễn Trọng Nghĩa
+
 - Câu 5: Citation / source tracking
 - Câu 6: Conversational RAG
 - Tự viết test cho câu 5, 6
@@ -82,6 +86,7 @@ src/application/chain_conversational.py  # Câu 6: ConversationalRetrievalChain
 ```
 
 #### Lưu Phùng Khải Nguyên
+
 - Câu 7: Hybrid search
 - Câu 8: Multi-document RAG + metadata filtering
 - Tự viết test cho câu 7, 8

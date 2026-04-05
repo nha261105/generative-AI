@@ -163,23 +163,43 @@ def render_qa_section() -> tuple[str, bool]:
     return question, send_clicked
 
 
-def render_answer(answer: dict):
-    """
-    Render card hiển thị câu trả lời từ AI.
+# def render_answer(answer: dict):
+#     """
+#     Render card hiển thị câu trả lời từ AI.
 
-    Args:
-        answer: dict với keys "text" và "source".
-    """
+#     Args:
+#         answer: dict với keys "text" và "source".
+#     """
+#     st.markdown(f"""
+#     <div class="answer-card">
+#         <div class="answer-badge">🤖 Trả lời</div>
+#         <p class="answer-text">{answer["text"]}</p>
+#         <div class="answer-source">📖 &nbsp;{answer["source"]}</div>
+#         <div class="action-buttons">
+#             <button class="action-btn">👍</button>
+#             <button class="action-btn">👎</button>
+#             <button class="action-btn">📋 Sao chép</button>
+#         </div>
+#     </div>
+#     """, unsafe_allow_html=True)
+
+def render_answer(vector_answer: dict, hybrid_answer: dict):
+    """Render card hiển thị VECTOR và HYBRID answer"""
+
     st.markdown(f"""
     <div class="answer-card">
-        <div class="answer-badge">🤖 Trả lời</div>
-        <p class="answer-text">{answer["text"]}</p>
-        <div class="answer-source">📖 &nbsp;{answer["source"]}</div>
-        <div class="action-buttons">
-            <button class="action-btn">👍</button>
-            <button class="action-btn">👎</button>
-            <button class="action-btn">📋 Sao chép</button>
-        </div>
+        <div class="answer-badge">🔎 Vector Search</div>
+        <p class="answer-text">{vector_answer["text"]}</p>
+        <div class="answer-source">📖 {vector_answer["source"]}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+    st.markdown(f"""
+    <div class="answer-card">
+        <div class="answer-badge">⚡ Hybrid Search</div>
+        <p class="answer-text">{hybrid_answer["text"]}</p>
+        <div class="answer-source">📖 {hybrid_answer["source"]}</div>
     </div>
     """, unsafe_allow_html=True)
 
