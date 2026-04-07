@@ -40,6 +40,8 @@ Thumbs.db
 .vscode/
 .idea/
 
+data/chat_history.json
+
 # Bỏ qua dữ liệu thô và index của FAISS
 data/faiss_index/
 data/pdfs/

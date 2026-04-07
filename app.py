@@ -2,6 +2,7 @@ import streamlit as st
 import hashlib
 from pathlib import Path
 
+from data.history import new_conversation, add_message, load_conversations, delete_conversation
 from src.presentation.styles import get_css
 from src.presentation.components import (
     render_sidebar,
@@ -12,6 +13,7 @@ from src.presentation.components import (
     render_answer,
     render_status_fab,
 )
+
 from src.application.pipeline import process_pdf_to_vectorstore
 from src.application.rag_chain import get_answer
 
