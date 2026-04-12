@@ -39,3 +39,9 @@ htmlcov/
 Thumbs.db
 .vscode/
 .idea/
+
+# Bỏ qua dữ liệu thô và index của FAISS
+data/faiss_index/
+data/pdfs/
+*.faiss
+*.pkl

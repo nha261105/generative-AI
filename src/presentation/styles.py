@@ -11,6 +11,13 @@ html, body, [class*="css"] {
 h1, h2, h3, .font-headline {
     font-family: 'Plus Jakarta Sans', sans-serif;
 }
+div[data-testid="stSidebarHeader"], div[data-testid="stToolbar"] {
+    display: none !important;
+}
+div[data-testid="stMainBlockContainer"] {
+    padding-top: 0;
+    padding-bottom: 0;
+}
 
 /* ── Sidebar ── */
 section[data-testid="stSidebar"] {
@@ -98,12 +105,16 @@ section[data-testid="stSidebar"] .sidebar-title {
     margin-top: auto;
 }
 
+header[data-testid="stHeader"] {
+    z-index: 0;
+}
+
 /* ── Main header ── */
 .main-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 1.5rem 0 2rem;
-    border-bottom: 1px solid #E7E8E9;
-    margin-bottom: 2rem;
+    # border-bottom: 1px solid #E7E8E9;
+    margin-bottom: 1rem;
 }
 .main-header h1 {
     font-family: 'Plus Jakarta Sans', sans-serif;
@@ -121,13 +132,6 @@ section[data-testid="stSidebar"] .sidebar-title {
 }
 
 /* ── Upload zone ── */
-.upload-card {
-    background: #FFFFFF;
-    border-radius: 1rem;
-    padding: 2rem;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.04);
-    margin-bottom: 1.5rem;
-}
 .upload-dropzone {
     border: 2px dashed #FDC003;
     background: rgba(253,192,3,0.03);
@@ -306,10 +310,62 @@ section[data-testid="stSidebar"] .sidebar-title {
 
 /* ── Streamlit widget overrides ── */
 div[data-testid="stFileUploader"] > label { display: none; }
-div[data-testid="stFileUploader"] section {
-    border: none !important;
-    background: transparent !important;
-    padding: 0 !important;
+div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] {
+    border: 2px dashed #FDC003 !important;
+    background: rgba(253,192,3,0.03) !important;
+    border-radius: 0.75rem !important;
+    padding: 4rem 1.5rem !important;
+    min-height: 230px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2rem !important;
+    transition: background 0.2s ease, border-color 0.2s ease !important;
+}
+div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"]:hover {
+    background: rgba(253,192,3,0.08) !important;
+    border-color: #E6AB00 !important;
+}
+div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] [data-testid="stFileUploaderDropzoneInstructions"] {
+    order: 1 !important;
+    margin: 0 !important;
+    font-size: 0 !important;
+    color: transparent !important;
+    text-align: center !important;
+    gap: 0.5rem !important;
+}
+div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] [data-testid="stFileUploaderDropzoneInstructions"]::before {
+    content: "Drag and drop file here";
+    display: block;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #191C1D;
+    line-height: 1.35;
+}
+div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] [data-testid="stFileUploaderDropzoneInstructions"] small {
+    display: none !important;
+}
+div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] button {
+    order: 2 !important;
+    border-radius: 0.65rem !important;
+    border: 1px solid #0059BB !important;
+    background: #0059BB !important;
+    color: #FFFFFF !important;
+    font-weight: 700 !important;
+    padding: 0.55rem 1rem !important;
+}
+div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] button:hover {
+    background: #004B9E !important;
+    border-color: #004B9E !important;
+}
+div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] button > div {
+    font-size: 0 !important;
+}
+div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] button > div::after {
+    content: "Chon file PDF";
+    font-size: 0.9rem;
 }
 div[data-testid="stTextInput"] > div > div > input {
     border-radius: 0.75rem !important;
@@ -326,5 +382,10 @@ div[data-testid="stTextInput"] > div > div > input:focus {
     font-weight: 700 !important;
     font-family: 'Inter', sans-serif !important;
 }
+
+div[data-testid="stSidebarUserContent"] {
+    padding-bottom: 1rem !important;
+}
+
 </style>
 """
