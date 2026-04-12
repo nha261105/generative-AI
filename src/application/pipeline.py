@@ -32,4 +32,4 @@ def process_pdf_to_vectorstore(pdf_path: str, vector_store_path: str):
     vector_db = FAISS.from_documents(chunks, embeddings)
     vector_db.save_local(vector_store_path)
     
-    return vector_db, chunks
+    return vector_db

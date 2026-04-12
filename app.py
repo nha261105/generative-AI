@@ -2,6 +2,7 @@ import streamlit as st
 import hashlib
 from pathlib import Path
 
+from data.history import new_conversation, add_message, load_conversations, delete_conversation
 from src.presentation.styles import get_css
 from src.presentation.components import (
     render_sidebar,
@@ -12,6 +13,7 @@ from src.presentation.components import (
     render_answer,
     render_status_fab,
 )
+
 from src.application.pipeline import process_pdf_to_vectorstore
 from src.application.rag_chain import get_answer
 
@@ -31,21 +33,52 @@ if "uploaded_file" not in st.session_state:
     st.session_state.uploaded_file = None
 if "answer" not in st.session_state:
     st.session_state.answer = None
-if "hybrid_answer" not in st.session_state:
-    st.session_state.hybrid_answer = None
 if "processing_step" not in st.session_state:
     st.session_state.processing_step = 1  # 1=reading, 2=embedding, 3=ready
 if "vector_db" not in st.session_state:
     st.session_state.vector_db = None
-if "chunks" not in st.session_state:
-    st.session_state.chunks = None
 if "uploaded_signature" not in st.session_state:
     st.session_state.uploaded_signature = None
 if "processing_error" not in st.session_state:
     st.session_state.processing_error = None
+if "active_conversation_id" not in st.session_state:
+    st.session_state.active_conversation_id = None
 
 # ─── Sidebar ───────────────────────────────────────────────────────────────────
-render_sidebar()
+chat_history = load_conversations()
+history_by_id = {conv.get("id"): conv for conv in chat_history}
+selected_conv_id, deleted_conv_id = render_sidebar(
+    chat_history=chat_history,
+    active_conversation_id=st.session_state.active_conversation_id,
+)
+
+if deleted_conv_id:
+    deleted_ok = delete_conversation(deleted_conv_id)
+    if deleted_ok:
+        if st.session_state.active_conversation_id == deleted_conv_id:
+            st.session_state.active_conversation_id = None
+            st.session_state.answer = None
+            st.session_state.question_input = ""
+        st.rerun()
+    else:
+        st.warning("Không tìm thấy cuộc trò chuyện để xóa.")
+
+if selected_conv_id:
+    st.session_state.active_conversation_id = selected_conv_id
+    selected_conv = history_by_id.get(selected_conv_id)
+
+    if selected_conv and selected_conv.get("messages"):
+        last_message = selected_conv["messages"][-1]
+        st.session_state.answer = {
+            "text": last_message.get("answer", ""),
+            "source": last_message.get("source", "Nguồn: Không xác định"),
+        }
+        st.session_state.question_input = last_message.get("question", "")
+    else:
+        st.session_state.answer = None
+        st.session_state.question_input = ""
+
+    st.rerun()
 
 # ─── Header ────────────────────────────────────────────────────────────────────
 render_header()
@@ -78,13 +111,12 @@ if uploaded_file is not None:
 
             with st.spinner("Đang xử lý tài liệu PDF và tạo chỉ mục..."):
                 st.session_state.processing_step = 2
-                vector_db,chunks = process_pdf_to_vectorstore(
+                vector_db = process_pdf_to_vectorstore(
                     pdf_path=str(pdf_path),
                     vector_store_path=str(index_dir),
                 )
 
             st.session_state.vector_db = vector_db
-            st.session_state.chunks = chunks
             st.session_state.processing_step = 3
             st.session_state.uploaded_signature = uploaded_signature
             st.success("Tài liệu đã sẵn sàng để hỏi đáp.")
@@ -109,26 +141,52 @@ if send_clicked:
     else:
         try:
             with st.spinner("SmartDoc AI đang phân tích câu hỏi..."):
-                response_text, sources, hybrid_response_text, hybrid_sources = get_answer(question, st.session_state.vector_db,st.session_state.chunks)
+                response_text, sources = get_answer(question, st.session_state.vector_db)
 
             source_text = "Nguồn: " + (", ".join(sources) if sources else "Không xác định")
+
+            active_conv_id = st.session_state.active_conversation_id
+            if not active_conv_id:
+                current_doc_name = (
+                    st.session_state.uploaded_file.name
+                    if st.session_state.uploaded_file is not None
+                    else ""
+                )
+                created_conv = new_conversation(doc_name=current_doc_name)
+                active_conv_id = created_conv["id"]
+                st.session_state.active_conversation_id = active_conv_id
+
+            saved_conv = add_message(
+                conv_id=active_conv_id,
+                question=question,
+                answer=response_text,
+                source=source_text,
+            )
+
+            if saved_conv is None:
+                current_doc_name = (
+                    st.session_state.uploaded_file.name
+                    if st.session_state.uploaded_file is not None
+                    else ""
+                )
+                created_conv = new_conversation(doc_name=current_doc_name)
+                st.session_state.active_conversation_id = created_conv["id"]
+                add_message(
+                    conv_id=created_conv["id"],
+                    question=question,
+                    answer=response_text,
+                    source=source_text,
+                )
+
             st.session_state.answer = {
                 "text": response_text,
                 "source": source_text,
             }
-            hybrid_source_text = "Nguồn: " + (", ".join(hybrid_sources) if hybrid_sources else "Không xác định")
-            st.session_state.hybrid_answer = {
-                "text": hybrid_response_text,
-                "source": hybrid_source_text,
-            }
         except Exception as exc:
             st.error(f"Lỗi khi chạy RAG chain: {exc}")
 
-if st.session_state.answer and st.session_state.hybrid_answer:
-    render_answer(
-        st.session_state.answer,
-        st.session_state.hybrid_answer
-    )
+if st.session_state.answer:
+    render_answer(st.session_state.answer)
 
 # ─── Status FAB ────────────────────────────────────────────────────────────────
 render_status_fab()
