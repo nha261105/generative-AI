@@ -41,9 +41,44 @@ if "uploaded_signature" not in st.session_state:
     st.session_state.uploaded_signature = None
 if "processing_error" not in st.session_state:
     st.session_state.processing_error = None
+if "active_conversation_id" not in st.session_state:
+    st.session_state.active_conversation_id = None
 
 # ─── Sidebar ───────────────────────────────────────────────────────────────────
-render_sidebar()
+chat_history = load_conversations()
+history_by_id = {conv.get("id"): conv for conv in chat_history}
+selected_conv_id, deleted_conv_id = render_sidebar(
+    chat_history=chat_history,
+    active_conversation_id=st.session_state.active_conversation_id,
+)
+
+if deleted_conv_id:
+    deleted_ok = delete_conversation(deleted_conv_id)
+    if deleted_ok:
+        if st.session_state.active_conversation_id == deleted_conv_id:
+            st.session_state.active_conversation_id = None
+            st.session_state.answer = None
+            st.session_state.question_input = ""
+        st.rerun()
+    else:
+        st.warning("Không tìm thấy cuộc trò chuyện để xóa.")
+
+if selected_conv_id:
+    st.session_state.active_conversation_id = selected_conv_id
+    selected_conv = history_by_id.get(selected_conv_id)
+
+    if selected_conv and selected_conv.get("messages"):
+        last_message = selected_conv["messages"][-1]
+        st.session_state.answer = {
+            "text": last_message.get("answer", ""),
+            "source": last_message.get("source", "Nguồn: Không xác định"),
+        }
+        st.session_state.question_input = last_message.get("question", "")
+    else:
+        st.session_state.answer = None
+        st.session_state.question_input = ""
+
+    st.rerun()
 
 # ─── Header ────────────────────────────────────────────────────────────────────
 render_header()
@@ -109,6 +144,40 @@ if send_clicked:
                 response_text, sources = get_answer(question, st.session_state.vector_db)
 
             source_text = "Nguồn: " + (", ".join(sources) if sources else "Không xác định")
+
+            active_conv_id = st.session_state.active_conversation_id
+            if not active_conv_id:
+                current_doc_name = (
+                    st.session_state.uploaded_file.name
+                    if st.session_state.uploaded_file is not None
+                    else ""
+                )
+                created_conv = new_conversation(doc_name=current_doc_name)
+                active_conv_id = created_conv["id"]
+                st.session_state.active_conversation_id = active_conv_id
+
+            saved_conv = add_message(
+                conv_id=active_conv_id,
+                question=question,
+                answer=response_text,
+                source=source_text,
+            )
+
+            if saved_conv is None:
+                current_doc_name = (
+                    st.session_state.uploaded_file.name
+                    if st.session_state.uploaded_file is not None
+                    else ""
+                )
+                created_conv = new_conversation(doc_name=current_doc_name)
+                st.session_state.active_conversation_id = created_conv["id"]
+                add_message(
+                    conv_id=created_conv["id"],
+                    question=question,
+                    answer=response_text,
+                    source=source_text,
+                )
+
             st.session_state.answer = {
                 "text": response_text,
                 "source": source_text,

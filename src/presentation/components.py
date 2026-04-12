@@ -1,8 +1,14 @@
 import streamlit as st
 
 
-def render_sidebar():
-    """Render toàn bộ sidebar: logo, hướng dẫn, điều hướng, cấu hình hệ thống."""
+def render_sidebar(
+    chat_history: list[dict] | None = None,
+    active_conversation_id: str | None = None,
+) -> tuple[str | None, str | None]:
+    """Render toàn bộ sidebar: logo, hướng dẫn, lịch sử chat, cấu hình hệ thống."""
+    selected_conv_id = None
+    deleted_conv_id = None
+
     with st.sidebar:
         # ── Logo ──────────────────────────────────────────────────────────────
         st.markdown('<div class="sidebar-title">SmartDoc AI 📄</div>', unsafe_allow_html=True)
@@ -27,17 +33,52 @@ def render_sidebar():
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # ── Điều hướng ───────────────────────────────────────────────────────
-        st.markdown('<div class="sidebar-section-label">Điều hướng</div>', unsafe_allow_html=True)
-        nav_items = [
-            ("📤", "Tải tài liệu",       True),
-            ("📊", "Phân tích nội dung", False),
-            ("💬", "Đặt câu hỏi AI",     False),
-            ("📄", "Trích xuất nguồn",   False),
-        ]
-        for icon, label, active in nav_items:
-            cls = "nav-item active" if active else "nav-item"
-            st.markdown(f'<div class="{cls}">{icon}&nbsp; {label}</div>', unsafe_allow_html=True)
+        # ── Lịch sử chat ─────────────────────────────────────────────────────
+        st.markdown('<div class="sidebar-section-label">Lịch sử chat</div>', unsafe_allow_html=True)
+        conversations = chat_history or []
+
+        if not conversations:
+            st.markdown(
+                '<div class="config-chip">💬&nbsp; Chưa có hội thoại nào</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            for conv in conversations[:8]:
+                conv_id = conv.get("id")
+                if not conv_id:
+                    continue
+
+                title = (conv.get("title") or "Đoạn chat mới").replace("\n", " ").strip()
+                doc_name = (conv.get("doc_name") or "").strip()
+                message_count = len(conv.get("messages", []))
+                suffix = f" · {message_count} lượt hỏi"
+
+                if doc_name:
+                    subtitle = f"📄 {doc_name}{suffix}"
+                else:
+                    subtitle = f"💬 Hội thoại{suffix}"
+
+                col_open, col_delete = st.columns([5, 1], gap="small")
+                with col_open:
+                    open_type = "primary" if conv_id == active_conversation_id else "secondary"
+                    if st.button(
+                        f"💬 {title}",
+                        key=f"open_conv_{conv_id}",
+                        use_container_width=True,
+                        type=open_type,
+                    ):
+                        selected_conv_id = conv_id
+                    st.caption(subtitle)
+                with col_delete:
+                    if st.button(
+                        "🗑️",
+                        key=f"delete_conv_{conv_id}",
+                        use_container_width=True,
+                        help="Xóa hội thoại này",
+                        type="tertiary",
+                    ):
+                        deleted_conv_id = conv_id
+                        break
 
         # ── Cấu hình hệ thống ────────────────────────────────────────────────
         st.markdown('<div class="sidebar-footer">', unsafe_allow_html=True)
@@ -50,6 +91,8 @@ def render_sidebar():
         for icon, label in configs:
             st.markdown(f'<div class="config-chip">{icon}&nbsp; {label}</div>', unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
+
+    return selected_conv_id, deleted_conv_id
 
 
 def render_header():
@@ -163,23 +206,43 @@ def render_qa_section() -> tuple[str, bool]:
     return question, send_clicked
 
 
-def render_answer(answer: dict):
-    """
-    Render card hiển thị câu trả lời từ AI.
+# def render_answer(answer: dict):
+#     """
+#     Render card hiển thị câu trả lời từ AI.
 
-    Args:
-        answer: dict với keys "text" và "source".
-    """
+#     Args:
+#         answer: dict với keys "text" và "source".
+#     """
+#     st.markdown(f"""
+#     <div class="answer-card">
+#         <div class="answer-badge">🤖 Trả lời</div>
+#         <p class="answer-text">{answer["text"]}</p>
+#         <div class="answer-source">📖 &nbsp;{answer["source"]}</div>
+#         <div class="action-buttons">
+#             <button class="action-btn">👍</button>
+#             <button class="action-btn">👎</button>
+#             <button class="action-btn">📋 Sao chép</button>
+#         </div>
+#     </div>
+#     """, unsafe_allow_html=True)
+
+def render_answer(vector_answer: dict, hybrid_answer: dict):
+    """Render card hiển thị VECTOR và HYBRID answer"""
+
     st.markdown(f"""
     <div class="answer-card">
-        <div class="answer-badge">🤖 Trả lời</div>
-        <p class="answer-text">{answer["text"]}</p>
-        <div class="answer-source">📖 &nbsp;{answer["source"]}</div>
-        <div class="action-buttons">
-            <button class="action-btn">👍</button>
-            <button class="action-btn">👎</button>
-            <button class="action-btn">📋 Sao chép</button>
-        </div>
+        <div class="answer-badge">🔎 Vector Search</div>
+        <p class="answer-text">{vector_answer["text"]}</p>
+        <div class="answer-source">📖 {vector_answer["source"]}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+    st.markdown(f"""
+    <div class="answer-card">
+        <div class="answer-badge">⚡ Hybrid Search</div>
+        <p class="answer-text">{hybrid_answer["text"]}</p>
+        <div class="answer-source">📖 {hybrid_answer["source"]}</div>
     </div>
     """, unsafe_allow_html=True)
 
