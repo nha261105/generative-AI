@@ -34,7 +34,6 @@ def render_answer(answer: dict):
         </div>
         """, unsafe_allow_html=True)
 
-    
     st.markdown('<div title="Sao chép">', unsafe_allow_html=True)
     st_copy_to_clipboard(answer["text"])
     st.markdown('</div>', unsafe_allow_html=True)
