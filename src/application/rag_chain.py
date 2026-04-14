@@ -6,7 +6,7 @@ def get_answer(query: str, vector_db):
     
     # 1. Kết nối với Ollama (Model Layer)
     llm = Ollama(
-        model="qwen2.5:7b",
+        model="qwen2.5:3b",
         temperature=0.7,    #Creativity level
         top_p=0.9,          #Nucleus sampling
         repeat_penalty=1.1, #Avoid repetition

@@ -9,4 +9,4 @@ torch
 numpy
 pandas
 python-docx
-
+streamlit-copy-to-clipboard

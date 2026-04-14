@@ -13,7 +13,8 @@ from src.presentation.components import (
     render_status_fab,
 )
 from src.application.pipeline import process_pdf_to_vectorstore
-from src.application.rag_chain import get_answer
+from src.application.chain_citation import get_answer_with_citation
+from src.presentation.comp_citation import render_answer
 
 # ─── Page config (phải đặt đầu tiên) ──────────────────────────────────────────
 st.set_page_config(
@@ -104,12 +105,13 @@ if send_clicked:
     else:
         try:
             with st.spinner("SmartDoc AI đang phân tích câu hỏi..."):
-                response_text, sources = get_answer(question, st.session_state.vector_db)
+                response, sources = get_answer_with_citation(question,st.session_state.vector_db)
 
-            source_text = "Nguồn: " + (", ".join(sources) if sources else "Không xác định")
+            # source_text = "Nguồn: " + (", ".join(sources) if sources else "Không xác định")
             st.session_state.answer = {
-                "text": response_text,
-                "source": source_text,
+                "text": response,
+                "sources": sources,
+                "query": question
             }
         except Exception as exc:
             st.error(f"Lỗi khi chạy RAG chain: {exc}")
