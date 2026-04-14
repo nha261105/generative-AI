@@ -2,16 +2,22 @@ import streamlit as st
 import hashlib
 from pathlib import Path
 
-from data.history import new_conversation, add_message, load_conversations, delete_conversation
+from data.history import (
+    new_conversation,
+    add_message,
+    load_conversations,
+    delete_conversation,
+    get_conversation,
+)
 from src.presentation.styles import get_css
 from src.presentation.components import (
     render_sidebar,
+    render_collapsed_sidebar_toggle,
     render_header,
     render_upload_section,
-    render_pipeline,
     render_qa_section,
     render_answer,
-    render_status_fab,
+    render_conversation_history,
 )
 
 from src.application.pipeline import process_pdf_to_vectorstore
@@ -26,7 +32,20 @@ st.set_page_config(
 )
 
 # ─── Inject CSS từ styles.py ───────────────────────────────────────────────────
-st.markdown(get_css(), unsafe_allow_html=True)
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = True
+if "sidebar_collapsed" not in st.session_state:
+    st.session_state.sidebar_collapsed = False
+if "selected_message_index" not in st.session_state:
+    st.session_state.selected_message_index = None
+
+st.markdown(
+    get_css(
+        dark_mode=st.session_state.dark_mode,
+        sidebar_collapsed=st.session_state.sidebar_collapsed,
+    ),
+    unsafe_allow_html=True,
+)
 
 # ─── Session state ─────────────────────────────────────────────────────────────
 if "uploaded_file" not in st.session_state:
@@ -47,10 +66,32 @@ if "active_conversation_id" not in st.session_state:
 # ─── Sidebar ───────────────────────────────────────────────────────────────────
 chat_history = load_conversations()
 history_by_id = {conv.get("id"): conv for conv in chat_history}
-selected_conv_id, deleted_conv_id = render_sidebar(
-    chat_history=chat_history,
-    active_conversation_id=st.session_state.active_conversation_id,
-)
+if st.session_state.sidebar_collapsed:
+    selected_conv_id = None
+    deleted_conv_id = None
+    new_chat_clicked = False
+    toggle_sidebar_clicked = render_collapsed_sidebar_toggle()
+else:
+    selected_conv_id, deleted_conv_id, new_chat_clicked, toggle_sidebar_clicked = render_sidebar(
+        chat_history=chat_history,
+        active_conversation_id=st.session_state.active_conversation_id,
+    )
+
+if toggle_sidebar_clicked:
+    st.session_state.sidebar_collapsed = not st.session_state.sidebar_collapsed
+    st.rerun()
+
+if new_chat_clicked:
+    st.session_state.active_conversation_id = None
+    st.session_state.answer = None
+    st.session_state.question_input = ""
+    st.session_state.uploaded_file = None
+    st.session_state.vector_db = None
+    st.session_state.uploaded_signature = None
+    st.session_state.processing_error = None
+    st.session_state.processing_step = 1
+    st.session_state.selected_message_index = None
+    st.rerun()
 
 if deleted_conv_id:
     deleted_ok = delete_conversation(deleted_conv_id)
@@ -74,14 +115,20 @@ if selected_conv_id:
             "source": last_message.get("source", "Nguồn: Không xác định"),
         }
         st.session_state.question_input = last_message.get("question", "")
+        st.session_state.selected_message_index = len(selected_conv["messages"]) - 1
     else:
         st.session_state.answer = None
         st.session_state.question_input = ""
+        st.session_state.selected_message_index = None
 
     st.rerun()
 
 # ─── Header ────────────────────────────────────────────────────────────────────
-render_header()
+selected_dark_mode = render_header(dark_mode=st.session_state.dark_mode)
+
+if selected_dark_mode != st.session_state.dark_mode:
+    st.session_state.dark_mode = selected_dark_mode
+    st.rerun()
 
 # ─── Upload section ────────────────────────────────────────────────────────────
 uploaded_file = render_upload_section()
@@ -119,16 +166,12 @@ if uploaded_file is not None:
             st.session_state.vector_db = vector_db
             st.session_state.processing_step = 3
             st.session_state.uploaded_signature = uploaded_signature
-            st.success("Tài liệu đã sẵn sàng để hỏi đáp.")
+            st.success("Upload file thành công. Bạn có thể bắt đầu hỏi đáp.")
         except Exception as exc:
             st.session_state.processing_error = str(exc)
             st.session_state.vector_db = None
             st.session_state.processing_step = 1
             st.error(f"Không thể xử lý PDF: {exc}")
-
-# ─── Processing pipeline ───────────────────────────────────────────────────────
-progress_map = {1: 30, 2: 65, 3: 100}
-render_pipeline(progress=progress_map.get(st.session_state.processing_step, 0))
 
 # ─── Q&A section ───────────────────────────────────────────────────────────────
 question, send_clicked = render_qa_section()
@@ -182,11 +225,21 @@ if send_clicked:
                 "text": response_text,
                 "source": source_text,
             }
+
+            active_conversation = get_conversation(st.session_state.active_conversation_id)
+            if active_conversation and active_conversation.get("messages"):
+                st.session_state.selected_message_index = len(active_conversation["messages"]) - 1
         except Exception as exc:
             st.error(f"Lỗi khi chạy RAG chain: {exc}")
 
 if st.session_state.answer:
     render_answer(st.session_state.answer)
 
-# ─── Status FAB ────────────────────────────────────────────────────────────────
-render_status_fab()
+if st.session_state.active_conversation_id:
+    conv = get_conversation(st.session_state.active_conversation_id)
+    messages = conv.get("messages", []) if conv else []
+    st.session_state.selected_message_index = render_conversation_history(
+        messages=messages,
+        selected_index=st.session_state.selected_message_index,
+        key_prefix=st.session_state.active_conversation_id,
+    )
