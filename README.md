@@ -133,6 +133,44 @@ Luồng xử lý chính trong ứng dụng:
 
 ---
 
+## Tiêu chí / yêu cầu
+```text
+1. Hệ thống RAG cốt lõi cần phải đáp ứng các yêu cầu cơ bản sau:
+- Giao diện: Xây dựng giao diện web thân thiện (sử dụng Streamlit) cho phép người dùng tải lên tài liệu PDF
+
+- Xử lý dữ liệu: Tích hợp công nghệ Text Embedding (sử dụng Multilingual MPNet) để chuyển đổi văn bản thành vector và dùng cơ sở dữ liệu FAISS để lưu trữ, tìm kiếm
+
+- Mô hình ngôn ngữ: Tích hợp mô hình lớn Qwen2.5:7b chạy local thông qua framework Ollama
+
+- Đa ngôn ngữ: Hỗ trợ xử lý xuất sắc tiếng Việt và hơn 50 ngôn ngữ khác, tự động phát hiện ngôn ngữ người dùng để trả lời cho phù hợp
+
+- Môi trường: Ứng dụng phải chạy local (trên máy tính cá nhân), sử dụng hoàn toàn các mô hình open-source và miễn phí để đảm bảo tính riêng tư dữ liệu
+
+2. 10 Tiêu chí / Yêu cầu phát triển dự án (Bắt buộc thực hiện)
+Tài liệu liệt kê 10 yêu cầu phát triển với mức độ khó tăng dần để sinh viên mở rộng tính năng của hệ thống RAG cơ bản
+:
+- Hỗ trợ định dạng DOCX: Mở rộng khả năng xử lý file, cho phép tải lên và trích xuất văn bản từ file DOCX (dùng thư viện như python-docx hoặc DocxLoader)
+
+- Lưu trữ lịch sử hội thoại: Hệ thống cần lưu các câu hỏi/trả lời trong session và hiển thị lịch sử chat ở thanh sidebar
+
+- Xóa lịch sử và dữ liệu: Thêm các nút "Clear History" (xóa lịch sử chat) và "Clear Vector Store" (xóa tài liệu đã tải lên), kèm theo hộp thoại xác nhận trước khi xóa
+
+- Cải thiện chiến lược Chunking: Thử nghiệm nhiều cấu hình cắt văn bản khác nhau (chunk_size: 500, 1000, 1500... và chunk_overlap: 50, 100, 200), so sánh độ chính xác và cho phép người dùng tự tùy chỉnh các tham số này
+
+- Theo dõi nguồn trích dẫn (Citation/Source tracking): Hiển thị nguồn gốc thông tin (như số trang, vị trí trong PDF), highlight các đoạn văn được dùng để trả lời và cho phép người dùng click xem lại ngữ cảnh gốc
+
+- Conversational RAG: Bổ sung bộ nhớ (memory) để hệ thống theo dõi ngữ cảnh cuộc hội thoại, giúp LLM trả lời được các câu hỏi nối tiếp (follow-up questions)
+
+- Tìm kiếm lai (Hybrid Search): Kết hợp cả tìm kiếm ngữ nghĩa bằng vector (Semantic search) và tìm kiếm từ khóa (BM25 keyword search), triển khai ensemble retriever và so sánh hiệu suất với cách tìm kiếm thông thường
+
+- Multi-document RAG và Lọc theo Metadata: Hỗ trợ tải lên nhiều file PDF cùng lúc, lưu trữ siêu dữ liệu (tên file, ngày upload, loại file), cho phép lọc khi tìm kiếm và chỉ rõ câu trả lời được lấy từ tài liệu nào
+
+- Re-ranking với Cross-Encoder: Thêm bước đánh giá lại mức độ liên quan của kết quả tìm kiếm bằng mô hình cross-encoder, so sánh với phương pháp bi-encoder hiện tại và tối ưu hóa độ trễ
+
+- Advanced RAG với Self-RAG: Triển khai cơ chế để LLM tự đánh giá câu trả lời, tự động viết lại câu hỏi (query rewriting), suy luận nhiều bước (multi-hop reasoning) và tính điểm độ tự tin (confidence scoring)
+
+```
+
 ## Công nghệ sử dụng
 
 - Python
