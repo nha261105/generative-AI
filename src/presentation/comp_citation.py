@@ -1,17 +1,54 @@
 import streamlit as st
 import re
 from st_copy_to_clipboard import st_copy_to_clipboard
-def highlight_by_query(content: str, query: str):
-    words = query.split()
+from difflib import SequenceMatcher
+
+def highlight_best_sentence(content: str, answer: str, source_id: int):
+    # 1. Tách content gốc thành các câu
+    source_sentences = re.split(r'(?<=[.!?])\s+', content)
     
-    for w in words:
-        if len(w) < 3:
+    # 2. Tách answer thành các câu để tìm câu có chứa [Nguồn X] tương ứng
+    answer_sentences = re.split(r'(?<=[.!?\n])\s+', answer)
+    
+    # Lọc ra những câu trong câu trả lời có chứa tag của Nguồn hiện tại
+    target_claims = [s for s in answer_sentences if f"[Nguồn {source_id}]" in s]
+    
+    # Nếu LLM quên gắn tag, fallback: dùng tất cả các câu trong answer
+    if not target_claims:
+        target_claims = answer_sentences
+
+    best_source_sentences = set()
+
+    # 3. So khớp từng câu claim với các câu trong source
+    for claim in target_claims:
+        # Xóa tag [Nguồn X] để so khớp phần chữ chính xác hơn
+        clean_claim = re.sub(r'\[Nguồn \d+\]', '', claim).strip()
+        if len(clean_claim) < 10: # Bỏ qua các câu quá ngắn
             continue
 
-        pattern = re.compile(f"({re.escape(w)})", re.IGNORECASE)
-        content = pattern.sub(r"<mark>\1</mark>", content)
+        best = ""
+        best_score = 0
+        
+        for s in source_sentences:
+            s_clean = s.strip() # strip() remove specific leading and trailing characters from a string
+            if len(s_clean) < 10: continue
+            
+            # So sánh độ tương đồng
+            score = SequenceMatcher(None, s_clean.lower(), clean_claim.lower()).ratio()
+            if score > best_score:
+                best_score = score
+                best = s_clean
+        
+        # Ngưỡng chấp nhận: 0.3 (30% giống nhau) là mức khá an toàn với AI viết lại
+        if best_score > 0.30 and best:
+            best_source_sentences.add(best)
 
-    return content
+    # 4. Highlight các câu đã tìm được trong content
+    highlighted_content = content
+    for best in best_source_sentences:
+        highlighted_content = highlighted_content.replace(best, f"<mark>{best}</mark>")
+
+    return highlighted_content
 
 
 def clean_content(text: str):
@@ -23,7 +60,7 @@ def clean_content(text: str):
 
     return text.strip()
 
-def render_answer(answer: dict):
+def render_answer_with_citation(answer: dict):
     """Render câu trả lời + citation + highlight"""
 
     # ===== 2. Hiển thị câu trả lời =====
@@ -38,28 +75,28 @@ def render_answer(answer: dict):
     st_copy_to_clipboard(answer["text"])
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # ===== 3. Hiển thị vùng copy =====
-    if st.session_state.get("show_copy", False):
-        st.text_area(
-            "Sao chép nội dung bên dưới:",
-            value=answer["text"],
-            height=150
-        )
+    # # ===== 3. Hiển thị vùng copy =====
+    # if st.session_state.get("show_copy", False):
+    #     st.text_area(
+    #         "Sao chép nội dung bên dưới:",
+    #         value=answer["text"],
+    #         height=150
+    #     )
 
 
     # ===== 3. Hiển thị danh sách nguồn =====
     if "sources" in answer and answer["sources"]:
         st.write("---")
         st.write("📖 **Nguồn trích dẫn:**")
-
-        query = answer.get('query',"")
+        
         for i, src in enumerate(answer["sources"]):
             source_id = i + 1
 
             # Highlight nội dung
+            answer_text = answer["text"]
             content = clean_content(src["content"])
 
-            highlighted = highlight_by_query(content, query)
+            highlighted = highlight_best_sentence(content, answer_text,source_id)
 
             with st.expander(
                 f"📍 Nguồn {source_id} | {src.get('source_file', 'Tài liệu')} | Trang {src['page']}"
@@ -70,4 +107,4 @@ def render_answer(answer: dict):
                 </div>
                 """, unsafe_allow_html=True)
 
-                st.caption(f"ID: {src['id']}")
+                # st.caption(f"ID: {src['id']}")

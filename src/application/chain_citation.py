@@ -19,6 +19,7 @@ def get_answer_with_citation(query: str, vector_db) -> Tuple[str,List[Dict]]:
 
     # ===== 3. Lấy docs =====
     relevant_docs = retriever.invoke(query)
+    
     print(f">>Tìm thấy {len(relevant_docs)} đoạn tài liệu liên quan")
     context_list = []
     detailed_sources = []

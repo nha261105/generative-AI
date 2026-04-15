@@ -13,8 +13,9 @@ from src.presentation.components import (
     render_status_fab,
 )
 from src.application.pipeline import process_pdf_to_vectorstore
+from src.application.rag_chain import get_answer
 from src.application.chain_citation import get_answer_with_citation
-from src.presentation.comp_citation import render_answer
+from src.presentation.comp_citation import render_answer_with_citation
 
 # ─── Page config (phải đặt đầu tiên) ──────────────────────────────────────────
 st.set_page_config(
@@ -117,7 +118,7 @@ if send_clicked:
             st.error(f"Lỗi khi chạy RAG chain: {exc}")
 
 if st.session_state.answer:
-    render_answer(st.session_state.answer)
+    render_answer_with_citation(st.session_state.answer)
 
 # ─── Status FAB ────────────────────────────────────────────────────────────────
 render_status_fab()
