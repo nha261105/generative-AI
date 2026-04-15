@@ -1,7 +1,7 @@
 from langchain_community.llms import ollama
 
 def get_llm(
-        model: str = "qwen2.5:7b",
+        model: str = "qwen2.5:3b",
         temperature: float = 0.7,
         top_p: float = 0.9,
         repeat_penalty: float = 1.1

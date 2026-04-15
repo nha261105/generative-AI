@@ -21,7 +21,8 @@ from src.presentation.components import (
 )
 
 from src.application.pipeline import process_pdf_to_vectorstore
-from src.application.rag_chain import get_answer
+from src.application.chain_citation import get_answer_with_citation
+from src.presentation.comp_citation import render_answer
 
 # ─── Page config (phải đặt đầu tiên) ──────────────────────────────────────────
 st.set_page_config(
@@ -184,9 +185,14 @@ if send_clicked:
     else:
         try:
             with st.spinner("SmartDoc AI đang phân tích câu hỏi..."):
-                response_text, sources = get_answer(question, st.session_state.vector_db)
+                response, sources = get_answer_with_citation(question,st.session_state.vector_db)
 
-            source_text = "Nguồn: " + (", ".join(sources) if sources else "Không xác định")
+            source_pages = sorted({src.get("page") for src in sources if src.get("page") is not None})
+            source_text = (
+                "Nguồn: " + ", ".join([f"Trang {page}" for page in source_pages])
+                if source_pages
+                else "Nguồn: Không xác định"
+            )
 
             active_conv_id = st.session_state.active_conversation_id
             if not active_conv_id:
@@ -202,7 +208,7 @@ if send_clicked:
             saved_conv = add_message(
                 conv_id=active_conv_id,
                 question=question,
-                answer=response_text,
+                answer=response,
                 source=source_text,
             )
 
@@ -217,13 +223,13 @@ if send_clicked:
                 add_message(
                     conv_id=created_conv["id"],
                     question=question,
-                    answer=response_text,
+                    answer=response,
                     source=source_text,
                 )
-
             st.session_state.answer = {
-                "text": response_text,
-                "source": source_text,
+                "text": response,
+                "sources": sources,
+                "query": question
             }
 
             active_conversation = get_conversation(st.session_state.active_conversation_id)
