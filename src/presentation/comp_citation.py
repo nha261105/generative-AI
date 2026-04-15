@@ -1,6 +1,9 @@
 import streamlit as st
 import re
-from st_copy_to_clipboard import st_copy_to_clipboard
+try:
+    from st_copy_to_clipboard import st_copy_to_clipboard  # pyright: ignore[reportMissingImports]
+except Exception:
+    st_copy_to_clipboard = None
 def highlight_by_query(content: str, query: str):
     words = query.split()
     
@@ -34,9 +37,10 @@ def render_answer(answer: dict):
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown('<div title="Sao chép">', unsafe_allow_html=True)
-    st_copy_to_clipboard(answer["text"])
-    st.markdown('</div>', unsafe_allow_html=True)
+    if st_copy_to_clipboard is not None:
+        st.markdown('<div title="Sao chép">', unsafe_allow_html=True)
+        st_copy_to_clipboard(answer["text"])
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # ===== 3. Hiển thị vùng copy =====
     if st.session_state.get("show_copy", False):

@@ -1,11 +1,34 @@
 from langchain_community.llms import Ollama
 from typing import Tuple, List, Dict
-from src.application.promts import get_rag_prompt
+from src.application.promts import get_rag_prompt, get_rag_prompt_with_history
 
-def get_answer_with_citation(query: str, vector_db) -> Tuple[str,List[Dict]]:
+
+def _format_chat_history(chat_history: List[Dict] | None, max_turns: int = 5) -> str:
+    if not chat_history:
+        return "(Chưa có lịch sử hội thoại)"
+
+    recent_turns = chat_history[-max_turns:]
+    lines: List[str] = []
+    for turn in recent_turns:
+        question = (turn.get("question") or "").strip()
+        answer = (turn.get("answer") or "").strip()
+
+        if question:
+            lines.append(f"Người dùng: {question}")
+        if answer:
+            lines.append(f"Trợ lý: {answer}")
+
+    return "\n".join(lines) if lines else "(Chưa có lịch sử hội thoại)"
+
+
+def get_answer_with_citation(
+    query: str,
+    vector_db,
+    chat_history: List[Dict] | None = None,
+) -> Tuple[str, List[Dict]]:
     # ===== 1. LLM =====
     llm = Ollama(
-        model="qwen2.5:3b",
+        model="qwen2.5:7b",
         temperature=0.7,
         top_p=0.9,
         repeat_penalty=1.1,
@@ -43,10 +66,17 @@ def get_answer_with_citation(query: str, vector_db) -> Tuple[str,List[Dict]]:
     context_string = "\n\n".join(context_list)
 
     # ===== 5. Prompt =====
-    prompt = get_rag_prompt().format(
-        context=context_string,
-        question=query
-    )
+    if chat_history:
+        prompt = get_rag_prompt_with_history().format(
+            chat_history=_format_chat_history(chat_history),
+            context=context_string,
+            question=query,
+        )
+    else:
+        prompt = get_rag_prompt().format(
+            context=context_string,
+            question=query,
+        )
 
     # ===== 6. LLM =====
     response = llm.invoke(prompt)

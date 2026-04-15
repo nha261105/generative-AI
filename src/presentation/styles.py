@@ -1,13 +1,15 @@
 def get_css(dark_mode: bool = False, sidebar_collapsed: bool = False) -> str:
     """Return CSS by theme and sidebar visibility."""
-    bg = "rgb(44, 44, 44)" if dark_mode else "#F4EFE8"
-    panel = "rgb(52, 52, 52)" if dark_mode else "#FBF8F3"
-    text = "#FFFFFF" if dark_mode else "#2D2926"
-    subtext = "#A0A0A0" if dark_mode else "#6E6258"
-    border = "#575757" if dark_mode else "#D7CCC1"
-    sidebar_bg = "rgb(33, 33, 33)" if dark_mode else "#E6DED3"
-    input_bg = "rgb(48, 48, 48)" if dark_mode else "#FFFFFF"
-    input_placeholder = "#7A7A7A" if dark_mode else "#999999"
+    bg = "#1F2329" if dark_mode else "#F8F9FA"
+    panel = "#2B2F36" if dark_mode else "#FFFFFF"
+    text = "#FFFFFF" if dark_mode else "#212529"
+    subtext = "#B7C0CB" if dark_mode else "#6C757D"
+    border = "#3A4048" if dark_mode else "#DEE2E6"
+    sidebar_bg = "#2C2F33" if dark_mode else "#2C2F33"
+    input_bg = "#343A40" if dark_mode else "#FFFFFF"
+    input_placeholder = "#8B939D" if dark_mode else "#6C757D"
+    primary = "#007BFF"
+    secondary = "#FFC107"
 
     sidebar_css = ""
     if sidebar_collapsed:
@@ -44,6 +46,27 @@ section[data-testid="stSidebar"] {
     padding: 1rem 0.75rem;
     transition: margin-left 0.2s ease;
 }
+section[data-testid="stSidebar"] button,
+section[data-testid="stSidebar"] a,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] div,
+section[data-testid="stSidebar"] label {
+    color: #FFFFFF !important;
+}
+section[data-testid="stSidebar"] .sidebar-panel {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.7rem;
+    padding: 0.65rem 0.75rem;
+    margin-bottom: 0.8rem;
+}
+section[data-testid="stSidebar"] .sidebar-panel-item {
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: #FFFFFF !important;
+    padding: 0.15rem 0;
+}
 
 section[data-testid="stSidebar"] .stButton > button[kind="tertiary"] {
     background: transparent !important;
@@ -63,31 +86,65 @@ section[data-testid="stSidebar"] * {
 }
 section[data-testid="stSidebar"] .sidebar-title {
     font-size: 1.05rem;
-    font-weight: 800;
+    font-weight: 900;
+    color: #FFFFFF !important;
     padding: 0.35rem 0.35rem 0.8rem;
 }
 .sidebar-section-label {
     font-size: 0.68rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: __SUBTEXT__ !important;
-    font-weight: 700;
+    color: #FFFFFF !important;
+    font-weight: 800;
     margin-top: 1.2rem;
     margin-bottom: 0.8rem;
     padding: 0 0.2rem;
 }
 .empty-chat-chip {
     font-size: 0.85rem;
-    color: __SUBTEXT__ !important;
+    color: #FFFFFF !important;
     padding: 0.5rem 0.2rem;
 }
 
 section[data-testid="stSidebar"] .stCaption {
-    color: __SUBTEXT__ !important;
+    color: #FFFFFF !important;
     font-size: 0.74rem !important;
 }
 section[data-testid="stSidebar"] .stCaption p {
-    color: __SUBTEXT__ !important;
+    color: #FFFFFF !important;
+}
+
+section[data-testid="stSidebar"] [data-baseweb="select"] > div {
+    background: #FFFFFF !important;
+    color: #111111 !important;
+    border: 1px solid #CED4DA !important;
+}
+
+section[data-testid="stSidebar"] [data-baseweb="select"] span,
+section[data-testid="stSidebar"] [data-baseweb="select"] svg,
+section[data-testid="stSidebar"] [data-baseweb="select"] input {
+    color: #111111 !important;
+    fill: #111111 !important;
+}
+
+div[role="listbox"] {
+    background: #FFFFFF !important;
+    color: #111111 !important;
+}
+
+div[role="listbox"] * {
+    color: #111111 !important;
+}
+
+section[data-testid="stSidebar"] [data-testid="stPopover"] button {
+    background: #FFFFFF !important;
+    color: #111111 !important;
+    border: 1px solid #CED4DA !important;
+}
+
+section[data-testid="stSidebar"] [data-testid="stPopover"] button:hover {
+    background: #F1F3F5 !important;
+    color: #111111 !important;
 }
 
 header[data-testid="stHeader"] {
@@ -109,6 +166,80 @@ header[data-testid="stHeader"] {
     color: __SUBTEXT__;
     font-size: 0.86rem;
     margin: 0.3rem 0 0;
+}
+.quick-flow-wrap {
+    margin-top: 0.62rem;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+.quick-flow-card {
+    background: #343A40;
+    border: 1px solid #495057;
+    color: #FFFFFF;
+    border-radius: 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.36rem 0.58rem;
+    white-space: nowrap;
+}
+.quick-flow-sep {
+    color: __SUBTEXT__;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.timeline-wrap {
+    margin-top: 0.9rem;
+    margin-bottom: 0.8rem;
+    padding: 0.85rem 0.95rem;
+    background: __PANEL__;
+    border: 1px solid __BORDER__;
+    border-radius: 0.75rem;
+}
+.timeline-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: __SUBTEXT__;
+    margin-bottom: 0.65rem;
+}
+.timeline-cards {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.timeline-card {
+    border-radius: 0.6rem;
+    padding: 0.42rem 0.7rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    border: 1px solid transparent;
+}
+.timeline-card.pending {
+    background: #343A40;
+    border-color: #495057;
+    color: #FFFFFF;
+}
+.timeline-card.active {
+    background: #E7F1FF;
+    border-color: #A9CFF7;
+    color: #1F5AA6;
+}
+.timeline-card.done {
+    background: #FFF4D6;
+    border-color: #F2D277;
+    color: #7A5B00;
+}
+.timeline-sep {
+    color: __SUBTEXT__;
+    font-size: 0.78rem;
+    font-weight: 700;
 }
 
 .file-chip {
@@ -152,7 +283,7 @@ header[data-testid="stHeader"] {
 .qa-card-label {
     display: flex;
     align-items: center;
-    border-left: 4px solid #3B82F6;
+    border-left: 4px solid __PRIMARY__;
     padding-left: 0.7rem;
     margin: 1rem 0 0.9rem;
     font-family: 'Plus Jakarta Sans', sans-serif;
@@ -172,7 +303,7 @@ header[data-testid="stHeader"] {
     position: absolute;
     top: -0.7rem;
     left: 1rem;
-    background: #8B7A68;
+    background: __PRIMARY__;
     color: #fff;
     padding: 0.16rem 0.68rem;
     border-radius: 9999px;
@@ -277,15 +408,15 @@ div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] 
 div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] button {
     order: 2 !important;
     border-radius: 0.55rem !important;
-    border: 1px solid __BORDER__ !important;
-    background: __PANEL__ !important;
-    color: __TEXT__ !important;
+    border: 1px solid __SECONDARY__ !important;
+    background: __SECONDARY__ !important;
+    color: #212529 !important;
     font-weight: 700 !important;
     padding: 0.45rem 0.9rem !important;
 }
 div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] button:hover {
-    background: __PANEL__ !important;
-    border-color: __SUBTEXT__ !important;
+    background: #FFD94D !important;
+    border-color: #FFD94D !important;
 }
 div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] button > div {
     font-size: 0 !important;
@@ -314,15 +445,15 @@ div[data-testid="stTextInput"] > div > div > input:focus {
     border-radius: 0.55rem !important;
     font-weight: 700 !important;
     font-family: 'Inter', sans-serif !important;
-    background: transparent !important;
-    border: 1px solid transparent !important;
-    color: __TEXT__ !important;
+    background: __PRIMARY__ !important;
+    border: 1px solid __PRIMARY__ !important;
+    color: #FFFFFF !important;
     box-shadow: none !important;
 }
 
 .stButton > button:hover {
-    background: transparent !important;
-    border-color: __BORDER__ !important;
+    background: #0069D9 !important;
+    border-color: #0062CC !important;
 }
 
 .stButton > button[kind="tertiary"] {
@@ -357,5 +488,7 @@ __SIDEBAR_CSS__
         .replace("__SIDEBAR_BG__", sidebar_bg)
         .replace("__INPUT_BG__", input_bg)
         .replace("__INPUT_PLACEHOLDER__", input_placeholder)
+        .replace("__PRIMARY__", primary)
+        .replace("__SECONDARY__", secondary)
         .replace("__SIDEBAR_CSS__", sidebar_css)
     )

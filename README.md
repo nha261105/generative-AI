@@ -13,13 +13,13 @@
 
 ## 👥 Thành viên nhóm & Phân công
 
-| Họ tên | MSSV | Phụ trách |
-|--------|------|-----------|
-| Nguyễn Hoàng Anh | 3123410007 | Lead · Setup dự án · Thiết kế hệ thống (Chương 3) · Câu 9, 10 |
-| Đỗ Nhật Huy | _(tự điền)_ | Câu 1, 2 · Tự test câu 1, 2 · UI (chung) |
-| Hồ Hoàng Long | 3123560046 | Câu 3, 4 · Tự test câu 3, 4 · Tổng hợp Chương 6 Testing |
-| Bùi Nguyễn Trọng Nghĩa | _(tự điền)_ | Câu 5, 6 · Tự test câu 5, 6 · UI (chung) |
-| Lưu Phùng Khải Nguyên | _(tự điền)_ | Câu 7, 8 · Tự test câu 7, 8 · UI (chung) |
+| Họ tên                 | MSSV        | Phụ trách                                                     |
+| ---------------------- | ----------- | ------------------------------------------------------------- |
+| Nguyễn Hoàng Anh       | 3123410007  | Lead · Setup dự án · Thiết kế hệ thống (Chương 3) · Câu 9, 10 |
+| Đỗ Nhật Huy            | _(tự điền)_ | Câu 1, 2 · Tự test câu 1, 2 · UI (chung)                      |
+| Hồ Hoàng Long          | 3123560046  | Câu 3, 4 · Tự test câu 3, 4 · Tổng hợp Chương 6 Testing       |
+| Bùi Nguyễn Trọng Nghĩa | _(tự điền)_ | Câu 5, 6 · Tự test câu 5, 6 · UI (chung)                      |
+| Lưu Phùng Khải Nguyên  | _(tự điền)_ | Câu 7, 8 · Tự test câu 7, 8 · UI (chung)                      |
 
 ### Chi tiết phân công
 
@@ -134,6 +134,7 @@ Luồng xử lý chính trong ứng dụng:
 ---
 
 ## Tiêu chí / yêu cầu
+
 ```text
 1. Hệ thống RAG cốt lõi cần phải đáp ứng các yêu cầu cơ bản sau:
 - Giao diện: Xây dựng giao diện web thân thiện (sử dụng Streamlit) cho phép người dùng tải lên tài liệu PDF
@@ -312,6 +313,40 @@ ollama serve
 ```bash
 make clean
 ```
+
+---
+
+## Checklist 10 yêu cầu phát triển (trạng thái hiện tại)
+
+| #   | Yêu cầu                                          | Trạng thái | Ghi chú ngắn                                                                                   |
+| --- | ------------------------------------------------ | ---------- | ---------------------------------------------------------------------------------------------- |
+| 1   | Hỗ trợ DOCX                                      | Not Done   | Chưa có pipeline/loader DOCX và UI upload DOCX trong code hiện tại                             |
+| 2   | Lưu trữ lịch sử hội thoại                        | Done       | Đã lưu/đọc/xóa từng cuộc hội thoại qua `data/history.py` + sidebar                             |
+| 3   | Clear History + Clear Vector Store (có xác nhận) | Partial    | Đã có xóa từng đoạn chat; chưa có nút clear toàn bộ history và clear vector store đúng yêu cầu |
+| 4   | Cải thiện chunk strategy (cho phép tùy chỉnh)    | Partial    | Đang chunk cố định; chưa có UI cho người dùng chỉnh `chunk_size`/`chunk_overlap`               |
+| 5   | Citation / Source tracking                       | Done       | Đã trả lời kèm nguồn trang và hiển thị context theo nguồn                                      |
+| 6   | Conversational RAG (memory trong chain)          | Partial    | Có lưu lịch sử chat, nhưng chain chưa dùng memory hội thoại để suy luận follow-up              |
+| 7   | Hybrid Search (Semantic + BM25)                  | Partial    | Có file `chain_hybrid.py` nhưng chưa tích hợp luồng chạy chính trong app                       |
+| 8   | Multi-document + metadata filtering              | Not Done   | Chưa có upload nhiều tài liệu + lọc theo metadata trong UI/chain                               |
+| 9   | Re-ranking với Cross-Encoder                     | Not Done   | Chưa có module rerank hoạt động trong repo hiện tại                                            |
+| 10  | Advanced RAG với Self-RAG                        | Not Done   | Chưa có module self-rag hoạt động trong repo hiện tại                                          |
+
+### Tổng quan nhanh
+
+- Done: 2/10 (yêu cầu 2, 5)
+- Partial: 4/10 (yêu cầu 3, 4, 6, 7)
+- Not Done: 4/10 (yêu cầu 1, 8, 9, 10)
+
+## Đề xuất thứ tự triển khai nhanh nhất theo effort
+
+1. Hoàn thiện yêu cầu 3 (Clear all history + clear vector store + hộp thoại xác nhận)
+2. Hoàn thiện yêu cầu 4 (thêm thanh chỉnh `chunk_size`/`chunk_overlap` trên UI)
+3. Hoàn thiện yêu cầu 6 (nối memory hội thoại vào chain để xử lý follow-up)
+4. Hoàn thiện yêu cầu 7 (kết nối hybrid retriever vào luồng hỏi đáp chính)
+5. Làm yêu cầu 1 (DOCX upload + loader + pipeline chung)
+6. Làm yêu cầu 8 (multi-document + metadata filter)
+7. Làm yêu cầu 9 (cross-encoder reranking)
+8. Làm yêu cầu 10 (self-rag: self-eval, rewrite query, confidence score)
 
 ---
 

@@ -1,4 +1,5 @@
 import json
+import shutil
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -183,3 +184,20 @@ def delete_conversation(conv_id: str) -> bool:
 def clear_all() -> None:
     """Xóa toàn bộ lịch sử chat."""
     _save_raw({"conversations": []})
+
+
+def clear_vector_store_directory() -> bool:
+    """Xóa dữ liệu vector store và PDF đã upload, sau đó tạo lại thư mục rỗng."""
+    try:
+        data_dir = HISTORY_FILE.parent
+        targets = [data_dir / "faiss_index", data_dir / "pdfs"]
+
+        for target in targets:
+            if target.exists():
+                shutil.rmtree(target)
+            target.mkdir(parents=True, exist_ok=True)
+
+        return True
+    except OSError as exc:
+        print(f"[history] Không thể clear vector store: {exc}")
+        return False

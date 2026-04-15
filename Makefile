@@ -33,8 +33,14 @@ qwen:
 
 # Chạy app
 run:
-	@ollama serve & sleep 2
-	./venv/bin/streamlit run app.py
+	@if ! pgrep -x ollama >/dev/null; then \
+		echo "Starting Ollama..."; \
+		ollama serve >/tmp/ollama.log 2>&1 & \
+		sleep 2; \
+	else \
+		echo "Ollama already running, skip start."; \
+	fi
+	STREAMLIT_SERVER_FILE_WATCHER_TYPE=none ./venv/bin/streamlit run app.py
 
 # Xóa venv
 clean:

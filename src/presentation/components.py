@@ -5,12 +5,21 @@ from html import escape
 def render_sidebar(
     chat_history: list[dict] | None = None,
     active_conversation_id: str | None = None,
-) -> tuple[str | None, str | None, bool, bool]:
+    dark_mode: bool = False,
+    chunk_size: int = 1000,
+    chunk_overlap: int = 150,
+    retrieval_mode: str = "vector",
+) -> tuple[str | None, str | None, bool, bool, bool, bool, int, int, str]:
     """Render sidebar tối giản kiểu ChatGPT: new chat + danh sách hội thoại."""
     selected_conv_id = None
     deleted_conv_id = None
     new_chat_clicked = False
     toggle_sidebar_clicked = False
+    clear_history_clicked = False
+    clear_vector_clicked = False
+    selected_chunk_size = chunk_size
+    selected_chunk_overlap = chunk_overlap
+    selected_retrieval_mode = retrieval_mode
 
     with st.sidebar:
         col_title, col_toggle = st.columns([6, 1], gap="small")
@@ -22,6 +31,91 @@ def render_sidebar(
 
         if st.button("✚  Đoạn chat mới", use_container_width=True, key="new_chat_btn"):
             new_chat_clicked = True
+
+        st.markdown('<div class="sidebar-section-label">Instructions</div>', unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="sidebar-panel">
+                <div class="sidebar-panel-item">1. Upload file PDF</div>
+                <div class="sidebar-panel-item">2. Doi he thong Embedding</div>
+                <div class="sidebar-panel-item">3. Dat cau hoi va doc tra loi</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown('<div class="sidebar-section-label">Model Configuration</div>', unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="sidebar-panel">
+                <div class="sidebar-panel-item">LLM: qwen2.5:7b</div>
+                <div class="sidebar-panel-item">Embedding: sentence-transformers</div>
+                <div class="sidebar-panel-item">Vector store: FAISS</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown('<div class="sidebar-section-label">Retrieval Mode</div>', unsafe_allow_html=True)
+        mode_options = {
+            "Vector Search": "vector",
+            "Hybrid Search (Vector + BM25)": "hybrid",
+        }
+        selected_mode_label = st.selectbox(
+            "Chế độ truy xuất",
+            options=list(mode_options.keys()),
+            index=0 if retrieval_mode == "vector" else 1,
+            key="retrieval_mode_select",
+            label_visibility="collapsed",
+        )
+        selected_retrieval_mode = mode_options[selected_mode_label]
+
+        st.markdown('<div class="sidebar-section-label">Chunk Strategy</div>', unsafe_allow_html=True)
+        selected_chunk_size = st.slider(
+            "Chunk size",
+            min_value=500,
+            max_value=2000,
+            value=chunk_size,
+            step=100,
+            help="Kích thước mỗi đoạn văn bản trước khi embedding",
+        )
+        selected_chunk_overlap = st.slider(
+            "Chunk overlap",
+            min_value=50,
+            max_value=300,
+            value=chunk_overlap,
+            step=50,
+            help="Số ký tự chồng lắp giữa các chunk",
+        )
+
+        st.markdown('<div class="sidebar-section-label">Clear Data</div>', unsafe_allow_html=True)
+        with st.popover("Clear History"):
+            st.warning("Thao tác này sẽ xóa toàn bộ lịch sử hội thoại.")
+            confirm_history = st.checkbox(
+                "Tôi xác nhận xóa toàn bộ lịch sử chat.",
+                key="confirm_clear_history_check",
+            )
+            if st.button(
+                "Xóa toàn bộ lịch sử",
+                key="confirm_clear_history_btn",
+                disabled=not confirm_history,
+                use_container_width=True,
+            ):
+                clear_history_clicked = True
+
+        with st.popover("Clear Vector Store"):
+            st.warning("Thao tác này sẽ xóa toàn bộ tài liệu đã tải lên và chỉ mục FAISS.")
+            confirm_vector = st.checkbox(
+                "Tôi xác nhận xóa toàn bộ tài liệu đã upload.",
+                key="confirm_clear_vector_check",
+            )
+            if st.button(
+                "Xóa Vector Store",
+                key="confirm_clear_vector_btn",
+                disabled=not confirm_vector,
+                use_container_width=True,
+            ):
+                clear_vector_clicked = True
 
         st.markdown('<div class="sidebar-section-label">Lịch sử đoạn chat</div>', unsafe_allow_html=True)
         conversations = chat_history or []
@@ -64,7 +158,17 @@ def render_sidebar(
                             deleted_conv_id = conv_id
                             break
 
-    return selected_conv_id, deleted_conv_id, new_chat_clicked, toggle_sidebar_clicked
+    return (
+        selected_conv_id,
+        deleted_conv_id,
+        new_chat_clicked,
+        toggle_sidebar_clicked,
+        clear_history_clicked,
+        clear_vector_clicked,
+        selected_chunk_size,
+        selected_chunk_overlap,
+        selected_retrieval_mode,
+    )
 
 
 def render_collapsed_sidebar_toggle() -> bool:
@@ -93,11 +197,47 @@ def render_header(dark_mode: bool) -> bool:
             <div>
                 <h1>SmartDoc AI</h1>
                 <p>Hỏi đáp thông minh từ tài liệu</p>
+                <div class="quick-flow-wrap">
+                    <div class="quick-flow-card">Upload file PDF</div>
+                    <div class="quick-flow-sep">&gt;</div>
+                    <div class="quick-flow-card">Đợi hệ thống Embedding</div>
+                    <div class="quick-flow-sep">&gt;</div>
+                    <div class="quick-flow-card">Đặt câu hỏi</div>
+                </div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
     return theme_selected
+
+
+def render_processing_timeline(processing_step: int) -> None:
+    """Render timeline 3 bước: Reading -> Embedding -> Ready."""
+    steps = [(1, "Reading"), (2, "Embedding"), (3, "Ready")]
+    cards = []
+    for idx, label in steps:
+        if processing_step <= 0:
+            status = "pending"
+        elif processing_step > idx:
+            status = "done"
+        elif processing_step == idx:
+            status = "active"
+        else:
+            status = "pending"
+
+        cards.append(f'<div class="timeline-card {status}">{label}</div>')
+        if idx < len(steps):
+            cards.append('<div class="timeline-sep">&gt;</div>')
+
+    st.markdown(
+        f'''
+        <div class="timeline-wrap">
+            <div class="timeline-title">Processing Timeline</div>
+            <div class="timeline-cards">{"".join(cards)}</div>
+        </div>
+        ''',
+        unsafe_allow_html=True,
+    )
 
 
 def render_upload_section() -> object:
