@@ -111,8 +111,7 @@ if send_clicked:
             # source_text = "Nguồn: " + (", ".join(sources) if sources else "Không xác định")
             st.session_state.answer = {
                 "text": response,
-                "sources": sources,
-                "query": question
+                "sources": sources                
             }
         except Exception as exc:
             st.error(f"Lỗi khi chạy RAG chain: {exc}")

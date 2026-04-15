@@ -71,18 +71,9 @@ def render_answer_with_citation(answer: dict):
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown('<div title="Sao chép">', unsafe_allow_html=True)
-    st_copy_to_clipboard(answer["text"])
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # # ===== 3. Hiển thị vùng copy =====
-    # if st.session_state.get("show_copy", False):
-    #     st.text_area(
-    #         "Sao chép nội dung bên dưới:",
-    #         value=answer["text"],
-    #         height=150
-    #     )
-
+    # st.markdown('<div title="Sao chép">', unsafe_allow_html=True)
+    # st_copy_to_clipboard(answer["text"])
+    # st.markdown('</div>', unsafe_allow_html=True)
 
     # ===== 3. Hiển thị danh sách nguồn =====
     if "sources" in answer and answer["sources"]:
