@@ -29,7 +29,7 @@ def render_sidebar(
             if st.button("◀", key="collapse_sidebar_btn", type="tertiary"):
                 toggle_sidebar_clicked = True
 
-        if st.button("✚  Đoạn chat mới", use_container_width=True, key="new_chat_btn"):
+        if st.button("✚  Đoạn chat mới", use_container_width=True, key="new_chat_btn", type="primary"):
             new_chat_clicked = True
 
         st.markdown('<div class="sidebar-section-label">Instructions</div>', unsafe_allow_html=True)
@@ -37,8 +37,8 @@ def render_sidebar(
             """
             <div class="sidebar-panel">
                 <div class="sidebar-panel-item">1. Upload file PDF</div>
-                <div class="sidebar-panel-item">2. Doi he thong Embedding</div>
-                <div class="sidebar-panel-item">3. Dat cau hoi va doc tra loi</div>
+                <div class="sidebar-panel-item">2. Đợi hệ thống Embedding</div>
+                <div class="sidebar-panel-item">3. Đặt câu hỏi và đọc trả lời</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -89,33 +89,39 @@ def render_sidebar(
         )
 
         st.markdown('<div class="sidebar-section-label">Clear Data</div>', unsafe_allow_html=True)
-        with st.popover("Clear History"):
-            st.warning("Thao tác này sẽ xóa toàn bộ lịch sử hội thoại.")
-            confirm_history = st.checkbox(
-                "Tôi xác nhận xóa toàn bộ lịch sử chat.",
-                key="confirm_clear_history_check",
-            )
-            if st.button(
-                "Xóa toàn bộ lịch sử",
-                key="confirm_clear_history_btn",
-                disabled=not confirm_history,
-                use_container_width=True,
-            ):
-                clear_history_clicked = True
+        # st.markdown(
+        #     """
+        #     <div class="sidebar-panel">
+        #         <div class="sidebar-panel-item"><strong>Clear History</strong></div>
+        #         <div class="sidebar-panel-item">⚠ Hành động này sẽ xóa toàn bộ lịch sử hội thoại.</div>
+        #     </div>
+        #     """,
+        #     unsafe_allow_html=True,
+        # )
+        if st.button(
+            "Xóa toàn bộ lịch sử",
+            key="confirm_clear_history_btn",
+            use_container_width=True,
+        ):
+            clear_history_clicked = True
+            st.toast("Đang xóa toàn bộ lịch sử hội thoại...", icon="⚠️")
 
-        with st.popover("Clear Vector Store"):
-            st.warning("Thao tác này sẽ xóa toàn bộ tài liệu đã tải lên và chỉ mục FAISS.")
-            confirm_vector = st.checkbox(
-                "Tôi xác nhận xóa toàn bộ tài liệu đã upload.",
-                key="confirm_clear_vector_check",
-            )
-            if st.button(
-                "Xóa Vector Store",
-                key="confirm_clear_vector_btn",
-                disabled=not confirm_vector,
-                use_container_width=True,
-            ):
-                clear_vector_clicked = True
+        # st.markdown(
+        #     """
+        #     <div class="sidebar-panel">
+        #         <div class="sidebar-panel-item"><strong>Clear Vector Store</strong></div>
+        #         <div class="sidebar-panel-item">⚠ Xác nhận xóa toàn bộ tài liệu đã tải lên và chỉ mục FAISS.</div>
+        #     </div>
+        #     """,
+        #     unsafe_allow_html=True,
+        # )
+        if st.button(
+            "Xóa Vector Store",
+            key="confirm_clear_vector_btn",
+            use_container_width=True,
+        ):
+            clear_vector_clicked = True
+            st.toast("Đang xóa Vector Store và tài liệu đã tải lên...", icon="🗑️")
 
         st.markdown('<div class="sidebar-section-label">Lịch sử đoạn chat</div>', unsafe_allow_html=True)
         conversations = chat_history or []
@@ -126,12 +132,25 @@ def render_sidebar(
                 unsafe_allow_html=True,
             )
         else:
+            st.markdown(
+                f'''
+                <div class="sidebar-history-summary">
+                    <span>{len(conversations)} hội thoại</span>
+                    <span>Mới nhất</span>
+                </div>
+                ''',
+                unsafe_allow_html=True,
+            )
+
             for conv in conversations[:8]:
                 conv_id = conv.get("id")
                 if not conv_id:
                     continue
 
                 title = (conv.get("title") or "Đoạn chat mới").replace("\n", " ").strip()
+                if len(title) > 42:
+                    title = f"{title[:39]}..."
+
                 doc_name = (conv.get("doc_name") or "").strip()
                 message_count = len(conv.get("messages", []))
                 suffix = f" · {message_count} lượt hỏi"
@@ -141,22 +160,39 @@ def render_sidebar(
                 else:
                     subtitle = f"Hội thoại{suffix}"
 
-                col_open, col_menu = st.columns([8, 1], gap="small")
+                is_active = conv_id == active_conversation_id
+                subtitle_class = "sidebar-chat-subtitle active" if is_active else "sidebar-chat-subtitle"
+
+                col_open, col_delete = st.columns([8, 1], gap="small")
                 with col_open:
-                    open_type = "primary" if conv_id == active_conversation_id else "secondary"
+                    open_type = "primary" if is_active else "secondary"
                     if st.button(
                         title,
                         key=f"open_conv_{conv_id}",
                         use_container_width=True,
                         type=open_type,
+                        help=subtitle,
                     ):
                         selected_conv_id = conv_id
-                    st.caption(subtitle)
-                with col_menu:
-                    with st.popover("⋮"):
-                        if st.button("Xóa đoạn chat", key=f"delete_conv_{conv_id}"):
-                            deleted_conv_id = conv_id
-                            break
+
+                    st.markdown(
+                        f'''
+                        <div class="{subtitle_class}">
+                            <span class="sidebar-chat-subtitle-text">{escape(subtitle)}</span>
+                        </div>
+                        ''',
+                        unsafe_allow_html=True,
+                    )
+                with col_delete:
+                    if st.button(
+                        "✕",
+                        key=f"delete_conv_{conv_id}",
+                        type="tertiary",
+                        use_container_width=True,
+                        help="Xóa đoạn chat",
+                    ):
+                        deleted_conv_id = conv_id
+                        break
 
     return (
         selected_conv_id,

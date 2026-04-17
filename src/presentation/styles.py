@@ -71,18 +71,55 @@ section[data-testid="stSidebar"] .sidebar-panel-item {
 section[data-testid="stSidebar"] .stButton > button[kind="tertiary"] {
     background: transparent !important;
     border: none !important;
-    color: __TEXT__ !important;
+    color: #F8FAFC !important;
     min-height: 2rem !important;
     padding: 0.1rem 0.25rem !important;
 }
 
 section[data-testid="stSidebar"] .stButton > button[kind="tertiary"]:hover {
-    background: transparent !important;
+    background: rgba(255, 255, 255, 0.18) !important;
     border: none !important;
-    color: __TEXT__ !important;
+    color: #FFFFFF !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button[kind="secondary"] {
+    border-radius: 0.75rem !important;
+    min-height: 2.35rem !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    padding: 0.5rem 0.72rem !important;
+    background: #F8FAFC !important;
+    border: 1px solid #D0D7E2 !important;
+    color: #111827 !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
+    background: #ECF2F8 !important;
+    border-color: #B8C4D4 !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button[kind="secondary"] * {
+    color: #111827 !important;
+    fill: #111827 !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button[kind="primary"] {
+    border-radius: 0.75rem !important;
+    min-height: 2.35rem !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    padding: 0.5rem 0.72rem !important;
+    background: linear-gradient(135deg, #0D6EFD, #228BE6) !important;
+    border: 1px solid rgba(174, 216, 255, 0.72) !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 8px 18px rgba(13, 110, 253, 0.24) !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
+    filter: brightness(1.08);
 }
 section[data-testid="stSidebar"] * {
-    color: __TEXT__ !important;
+    color: #FFFFFF !important;
 }
 section[data-testid="stSidebar"] .sidebar-title {
     font-size: 1.05rem;
@@ -103,7 +140,65 @@ section[data-testid="stSidebar"] .sidebar-title {
 .empty-chat-chip {
     font-size: 0.85rem;
     color: #FFFFFF !important;
-    padding: 0.5rem 0.2rem;
+    padding: 0.62rem 0.65rem;
+    border-radius: 0.7rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px dashed rgba(255, 255, 255, 0.24);
+    text-align: center;
+}
+
+section[data-testid="stSidebar"] .sidebar-history-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    margin: 0.1rem 0 0.75rem;
+    padding: 0.38rem 0.55rem;
+    border-radius: 0.62rem;
+    border: 1px solid #D0D7E2;
+    background: #F8FAFC;
+}
+
+section[data-testid="stSidebar"] .sidebar-history-summary span:first-child {
+    font-size: 0.73rem;
+    font-weight: 700;
+    color: #111827 !important;
+}
+
+section[data-testid="stSidebar"] .sidebar-history-summary span:last-child {
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #4B5563 !important;
+}
+
+section[data-testid="stSidebar"] .sidebar-chat-subtitle {
+    margin-top: -0.12rem;
+    margin-bottom: 0.64rem;
+    padding: 0.32rem 0.5rem;
+    border-radius: 0.55rem;
+    border: 1px solid #D0D7E2;
+    background: #F8FAFC;
+    display: block;
+}
+
+section[data-testid="stSidebar"] .sidebar-chat-subtitle.active {
+    border-color: rgba(174, 216, 255, 0.9);
+    background: rgba(13, 110, 253, 0.16);
+}
+
+section[data-testid="stSidebar"] .sidebar-chat-subtitle-text {
+    font-size: 0.68rem;
+    color: #1F2937 !important;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+section[data-testid="stSidebar"] .sidebar-chat-subtitle.active .sidebar-chat-subtitle-text {
+    color: #EAF2FF !important;
 }
 
 section[data-testid="stSidebar"] .stCaption {
@@ -120,6 +215,7 @@ section[data-testid="stSidebar"] [data-baseweb="select"] > div {
     border: 1px solid #CED4DA !important;
 }
 
+section[data-testid="stSidebar"] [data-baseweb="select"] div,
 section[data-testid="stSidebar"] [data-baseweb="select"] span,
 section[data-testid="stSidebar"] [data-baseweb="select"] svg,
 section[data-testid="stSidebar"] [data-baseweb="select"] input {
@@ -130,16 +226,26 @@ section[data-testid="stSidebar"] [data-baseweb="select"] input {
 div[role="listbox"] {
     background: #FFFFFF !important;
     color: #111111 !important;
+    border: 1px solid #CED4DA !important;
 }
 
+div[role="listbox"] [role="option"],
 div[role="listbox"] * {
     color: #111111 !important;
+}
+
+div[role="listbox"] [aria-selected="true"] {
+    background: rgba(0, 123, 255, 0.16) !important;
 }
 
 section[data-testid="stSidebar"] [data-testid="stPopover"] button {
     background: #FFFFFF !important;
     color: #111111 !important;
     border: 1px solid #CED4DA !important;
+}
+
+section[data-testid="stSidebar"] [data-testid="stPopover"] button * {
+    color: #111111 !important;
 }
 
 section[data-testid="stSidebar"] [data-testid="stPopover"] button:hover {
@@ -441,19 +547,35 @@ div[data-testid="stTextInput"] > div > div > input::placeholder {
 div[data-testid="stTextInput"] > div > div > input:focus {
     box-shadow: 0 0 0 2px rgba(139,122,104,0.35) !important;
 }
+
 .stButton > button {
     border-radius: 0.55rem !important;
     font-weight: 700 !important;
     font-family: 'Inter', sans-serif !important;
+    box-shadow: none !important;
+    transition: background 0.18s ease, border-color 0.18s ease, filter 0.18s ease !important;
+}
+
+.stButton > button[kind="primary"] {
     background: __PRIMARY__ !important;
     border: 1px solid __PRIMARY__ !important;
     color: #FFFFFF !important;
-    box-shadow: none !important;
 }
 
-.stButton > button:hover {
+.stButton > button[kind="primary"]:hover {
     background: #0069D9 !important;
     border-color: #0062CC !important;
+}
+
+.stButton > button[kind="secondary"] {
+    background: __PANEL__ !important;
+    border: 1px solid __BORDER__ !important;
+    color: __TEXT__ !important;
+}
+
+.stButton > button[kind="secondary"]:hover {
+    border-color: __SUBTEXT__ !important;
+    filter: brightness(0.97);
 }
 
 .stButton > button[kind="tertiary"] {
