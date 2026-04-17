@@ -1,12 +1,32 @@
-def get_css() -> str:
-    """Trả về toàn bộ CSS custom cho ứng dụng SmartDoc AI."""
-    return """
+def get_css(dark_mode: bool = False, sidebar_collapsed: bool = False) -> str:
+    """Return CSS by theme and sidebar visibility."""
+    bg = "#1F2329" if dark_mode else "#F8F9FA"
+    panel = "#2B2F36" if dark_mode else "#FFFFFF"
+    text = "#FFFFFF" if dark_mode else "#212529"
+    subtext = "#B7C0CB" if dark_mode else "#6C757D"
+    border = "#3A4048" if dark_mode else "#DEE2E6"
+    sidebar_bg = "#2C2F33" if dark_mode else "#2C2F33"
+    input_bg = "#343A40" if dark_mode else "#FFFFFF"
+    input_placeholder = "#8B939D" if dark_mode else "#6C757D"
+    primary = "#007BFF"
+    secondary = "#FFC107"
+
+    sidebar_css = ""
+    if sidebar_collapsed:
+        sidebar_css = """
+section[data-testid=\"stSidebar\"] {
+    margin-left: -22rem !important;
+}
+"""
+
+    css = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap');
 
-/* ── Global ── */
-html, body, [class*="css"] {
+html, body, [class*="css"], [data-testid="stAppViewContainer"] {
     font-family: 'Inter', sans-serif;
+    background: __BG__;
+    color: __TEXT__;
 }
 h1, h2, h3, .font-headline {
     font-family: 'Plus Jakarta Sans', sans-serif;
@@ -15,317 +35,357 @@ div[data-testid="stSidebarHeader"], div[data-testid="stToolbar"] {
     display: none !important;
 }
 div[data-testid="stMainBlockContainer"] {
-    padding-top: 0;
-    padding-bottom: 0;
+    padding-top: 0.8rem;
+    padding-bottom: 1.2rem;
+    max-width: 980px;
 }
 
-/* ── Sidebar ── */
 section[data-testid="stSidebar"] {
-    background-color: #2C2F33 !important;
-    padding: 1.5rem 1rem;
+    background-color: __SIDEBAR_BG__ !important;
+    border-right: 1px solid __BORDER__;
+    padding: 1rem 0.75rem;
+    transition: margin-left 0.2s ease;
+}
+section[data-testid="stSidebar"] button,
+section[data-testid="stSidebar"] a,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] span,
+section[data-testid="stSidebar"] div,
+section[data-testid="stSidebar"] label {
+    color: #FFFFFF !important;
+}
+section[data-testid="stSidebar"] .sidebar-panel {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.7rem;
+    padding: 0.65rem 0.75rem;
+    margin-bottom: 0.8rem;
+}
+section[data-testid="stSidebar"] .sidebar-panel-item {
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: #FFFFFF !important;
+    padding: 0.15rem 0;
+}
+
+section[data-testid="stSidebar"] .stButton > button[kind="tertiary"] {
+    background: transparent !important;
+    border: none !important;
+    color: __TEXT__ !important;
+    min-height: 2rem !important;
+    padding: 0.1rem 0.25rem !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button[kind="tertiary"]:hover {
+    background: transparent !important;
+    border: none !important;
+    color: __TEXT__ !important;
 }
 section[data-testid="stSidebar"] * {
-    color: #CBD5E1 !important;
+    color: __TEXT__ !important;
 }
 section[data-testid="stSidebar"] .sidebar-title {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 1.25rem;
+    font-size: 1.05rem;
     font-weight: 900;
     color: #FFFFFF !important;
-    letter-spacing: -0.025em;
-    padding: 1rem 0.5rem 1.5rem;
-    border-bottom: 1px solid rgba(255,255,255,0.07);
-    margin-bottom: 1.5rem;
+    padding: 0.35rem 0.35rem 0.8rem;
 }
 .sidebar-section-label {
-    font-size: 0.625rem;
+    font-size: 0.68rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: #64748B !important;
-    font-weight: 700;
-    margin-bottom: 0.75rem;
-    padding: 0 0.5rem;
+    color: #FFFFFF !important;
+    font-weight: 800;
+    margin-top: 1.2rem;
+    margin-bottom: 0.8rem;
+    padding: 0 0.2rem;
 }
-.step-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.35rem 0.5rem;
-    margin-bottom: 0.5rem;
+.empty-chat-chip {
+    font-size: 0.85rem;
+    color: #FFFFFF !important;
+    padding: 0.5rem 0.2rem;
 }
-.step-badge {
-    width: 1.5rem; height: 1.5rem;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 9999px;
-    background: rgba(255,255,255,0.1);
-    font-size: 0.625rem; font-weight: 700;
-    flex-shrink: 0;
-    color: #CBD5E1 !important;
+
+section[data-testid="stSidebar"] .stCaption {
+    color: #FFFFFF !important;
+    font-size: 0.74rem !important;
 }
-.step-badge.active {
-    background: #0059BB;
+section[data-testid="stSidebar"] .stCaption p {
     color: #FFFFFF !important;
 }
-.step-text { font-size: 0.875rem; }
-.step-text.active { color: #FFFFFF !important; font-weight: 600; }
 
-.nav-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    border-radius: 0.75rem;
-    margin-bottom: 0.25rem;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: background 0.15s;
-    text-decoration: none;
+section[data-testid="stSidebar"] [data-baseweb="select"] > div {
+    background: #FFFFFF !important;
+    color: #111111 !important;
+    border: 1px solid #CED4DA !important;
 }
-.nav-item.active {
-    background: rgba(255,255,255,0.1);
-    color: #FFFFFF !important;
-    font-weight: 600;
-}
-.nav-item:not(.active) { color: #94A3B8 !important; }
-.nav-item:hover:not(.active) { background: rgba(255,255,255,0.05); color: #FFFFFF !important; }
 
-.config-chip {
-    display: flex; align-items: center; gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    background: rgba(255,255,255,0.05);
-    border-radius: 0.5rem;
-    margin-bottom: 0.4rem;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    color: #CBD5E1 !important;
+section[data-testid="stSidebar"] [data-baseweb="select"] span,
+section[data-testid="stSidebar"] [data-baseweb="select"] svg,
+section[data-testid="stSidebar"] [data-baseweb="select"] input {
+    color: #111111 !important;
+    fill: #111111 !important;
 }
-.sidebar-footer {
-    border-top: 1px solid rgba(255,255,255,0.05);
-    padding-top: 1rem;
-    margin-top: auto;
+
+div[role="listbox"] {
+    background: #FFFFFF !important;
+    color: #111111 !important;
+}
+
+div[role="listbox"] * {
+    color: #111111 !important;
+}
+
+section[data-testid="stSidebar"] [data-testid="stPopover"] button {
+    background: #FFFFFF !important;
+    color: #111111 !important;
+    border: 1px solid #CED4DA !important;
+}
+
+section[data-testid="stSidebar"] [data-testid="stPopover"] button:hover {
+    background: #F1F3F5 !important;
+    color: #111111 !important;
 }
 
 header[data-testid="stHeader"] {
     z-index: 0;
 }
-
-/* ── Main header ── */
 .main-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 1.5rem 0 2rem;
-    # border-bottom: 1px solid #E7E8E9;
-    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    padding: 0.4rem 0 0.8rem;
 }
 .main-header h1 {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 1.75rem; font-weight: 900;
-    color: #191C1D; line-height: 1;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: __TEXT__;
+    line-height: 1;
     margin: 0;
 }
-.main-header p { color: #414754; font-size: 0.875rem; margin: 0.25rem 0 0; }
-.avatar {
-    width: 2.5rem; height: 2.5rem;
-    background: #0070EA;
-    border-radius: 9999px;
-    display: flex; align-items: center; justify-content: center;
-    color: #fff; font-weight: 700; font-size: 0.875rem;
+.main-header p {
+    color: __SUBTEXT__;
+    font-size: 0.86rem;
+    margin: 0.3rem 0 0;
+}
+.quick-flow-wrap {
+    margin-top: 0.62rem;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+.quick-flow-card {
+    background: #343A40;
+    border: 1px solid #495057;
+    color: #FFFFFF;
+    border-radius: 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.36rem 0.58rem;
+    white-space: nowrap;
+}
+.quick-flow-sep {
+    color: __SUBTEXT__;
+    font-size: 0.75rem;
+    font-weight: 700;
 }
 
-/* ── Upload zone ── */
-.upload-dropzone {
-    border: 2px dashed #FDC003;
-    background: rgba(253,192,3,0.03);
+.timeline-wrap {
+    margin-top: 0.9rem;
+    margin-bottom: 0.8rem;
+    padding: 0.85rem 0.95rem;
+    background: __PANEL__;
+    border: 1px solid __BORDER__;
     border-radius: 0.75rem;
-    padding: 3rem 2rem;
-    text-align: center;
-    transition: background 0.2s;
 }
-.upload-dropzone:hover { background: rgba(253,192,3,0.07); }
-.upload-icon-wrap {
-    width: 4rem; height: 4rem;
-    background: #FFDF9E;
-    border-radius: 9999px;
-    display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 1rem;
-    font-size: 2rem;
-}
-.upload-dropzone h3 {
+.timeline-title {
     font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 1.125rem; font-weight: 700;
-    color: #191C1D; margin: 0 0 0.25rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: __SUBTEXT__;
+    margin-bottom: 0.65rem;
 }
-.upload-dropzone p { color: #414754; font-size: 0.875rem; margin: 0 0 1.5rem; }
+.timeline-cards {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.timeline-card {
+    border-radius: 0.6rem;
+    padding: 0.42rem 0.7rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    border: 1px solid transparent;
+}
+.timeline-card.pending {
+    background: #343A40;
+    border-color: #495057;
+    color: #FFFFFF;
+}
+.timeline-card.active {
+    background: #E7F1FF;
+    border-color: #A9CFF7;
+    color: #1F5AA6;
+}
+.timeline-card.done {
+    background: #FFF4D6;
+    border-color: #F2D277;
+    color: #7A5B00;
+}
+.timeline-sep {
+    color: __SUBTEXT__;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
 
-/* ── File chip ── */
 .file-chip {
-    display: inline-flex; align-items: center; gap: 0.75rem;
-    background: #EDEEEF;
-    border-radius: 0.75rem;
-    padding: 0.75rem 1rem;
-    margin-top: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    background: __PANEL__;
+    border: 1px solid __BORDER__;
+    border-radius: 0.7rem;
+    padding: 0.55rem 0.8rem;
+    margin-top: 0.8rem;
 }
 .file-chip-icon {
-    background: #fff;
+    background: rgba(59,130,246,0.12);
     border-radius: 0.5rem;
-    padding: 0.4rem;
-    font-size: 1.25rem;
+    padding: 0.28rem;
+    font-size: 1rem;
 }
-.file-chip-name { font-size: 0.875rem; font-weight: 600; color: #191C1D; }
-.file-chip-size { font-size: 0.6875rem; color: #414754; }
+.file-chip-name {
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: __TEXT__;
+}
+.file-chip-size {
+    font-size: 0.7rem;
+    color: __SUBTEXT__;
+}
 .file-chip-check {
-    width: 1.5rem; height: 1.5rem;
+    width: 1.2rem;
+    height: 1.2rem;
     background: #DCFCE7;
     border-radius: 9999px;
-    display: flex; align-items: center; justify-content: center;
-    color: #15803D; font-size: 0.75rem; font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #15803D;
+    font-size: 0.68rem;
+    font-weight: 700;
 }
 
-/* ── Progress pipeline ── */
-.pipeline-card { margin-bottom: 1.5rem; }
-.pipeline-label {
-    display: flex; justify-content: space-between; align-items: flex-end;
-    margin-bottom: 0.5rem;
-}
-.pipeline-label span:first-child {
-    font-size: 0.75rem; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.05em;
-    color: #414754;
-}
-.pipeline-label span:last-child {
-    font-size: 0.75rem; font-weight: 600; color: #0059BB;
-}
-.pipeline-bar-bg {
-    background: #E1E3E4; border-radius: 9999px;
-    height: 0.5rem; overflow: hidden; margin-bottom: 1rem;
-}
-.pipeline-bar-fill {
-    background: #0059BB; height: 100%;
-    border-radius: 9999px;
-    transition: width 1s ease;
-}
-.pipeline-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
-.pipeline-step {
-    display: flex; align-items: center; gap: 0.75rem;
-    padding: 1rem; border-radius: 0.75rem;
-    background: #FFFFFF;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-}
-.pipeline-step.active {
-    background: rgba(0,89,187,0.04);
-    border: 1px solid rgba(0,89,187,0.15);
-}
-.pipeline-step.pending { opacity: 0.5; }
-.pipeline-step span.label { font-size: 0.875rem; font-weight: 500; color: #191C1D; }
-.pipeline-step.active span.label { font-weight: 700; color: #0059BB; }
-.pipeline-step.pending span.label { color: #414754; }
-.spinner {
-    width: 1rem; height: 1rem;
-    border: 2px solid #0059BB;
-    border-top-color: transparent;
-    border-radius: 9999px;
-    animation: spin 0.7s linear infinite;
-    flex-shrink: 0;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ── Q&A ── */
-.qa-card {
-    background: #FFFFFF;
-    border-radius: 1rem;
-    padding: 1.5rem;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.04);
-    margin-bottom: 1.5rem;
-}
 .qa-card-label {
-    display: flex; align-items: center;
-    border-left: 4px solid #0059BB;
-    padding-left: 0.75rem;
-    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    border-left: 4px solid __PRIMARY__;
+    padding-left: 0.7rem;
+    margin: 1rem 0 0.9rem;
     font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 0.875rem; font-weight: 700;
-    color: #191C1D;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: __TEXT__;
 }
 .answer-card {
-    background: rgba(216,226,255,0.3);
-    border: 1px solid rgba(0,89,187,0.1);
-    border-radius: 1rem;
-    padding: 2rem;
+    background: __PANEL__;
+    border: 1px solid __BORDER__;
+    border-radius: 0.9rem;
+    padding: 1.3rem;
     position: relative;
     margin-top: 1rem;
 }
 .answer-badge {
-    position: absolute; top: -0.875rem; left: 1.5rem;
-    background: #0059BB; color: #fff;
-    padding: 0.2rem 0.85rem;
+    position: absolute;
+    top: -0.7rem;
+    left: 1rem;
+    background: __PRIMARY__;
+    color: #fff;
+    padding: 0.16rem 0.68rem;
     border-radius: 9999px;
-    font-size: 0.65rem; font-weight: 700;
-    letter-spacing: 0.08em; text-transform: uppercase;
-    display: flex; align-items: center; gap: 0.4rem;
-    box-shadow: 0 4px 12px rgba(0,89,187,0.35);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 .answer-text {
-    font-size: 1rem; line-height: 1.7;
-    color: #191C1D; margin: 0.5rem 0 1rem;
+    font-size: 0.95rem;
+    line-height: 1.65;
+    color: __TEXT__;
+    margin: 0.5rem 0 0.8rem;
 }
 .answer-source {
-    display: flex; align-items: center; gap: 0.5rem;
-    padding-top: 0.875rem;
-    border-top: 1px solid rgba(0,89,187,0.1);
-    font-size: 0.75rem; font-weight: 600; color: #414754;
-}
-.action-buttons { display: flex; gap: 0.5rem; margin-top: 1rem; }
-.action-btn {
-    padding: 0.4rem 0.75rem;
-    border-radius: 0.5rem;
-    background: rgba(255,255,255,0.7);
-    border: 1px solid rgba(0,0,0,0.06);
-    cursor: pointer; font-size: 0.8rem;
-    color: #414754; transition: background 0.15s;
-}
-.action-btn:hover { background: rgba(255,255,255,1); }
-
-/* ── Status FAB ── */
-.status-fab {
-    display: inline-flex; align-items: center; gap: 0.75rem;
-    background: rgba(255,255,255,0.9);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(193,198,215,0.4);
-    border-radius: 1rem;
-    padding: 0.875rem 1.25rem;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-    font-size: 0.75rem; font-weight: 700;
-    color: #414754;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    margin-top: 1rem;
-}
-.pulse-dot {
-    width: 0.5rem; height: 0.5rem;
-    background: #22C55E; border-radius: 9999px;
-    animation: pulse 1.5s infinite;
-}
-@keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.6; transform: scale(1.3); }
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid __BORDER__;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: __SUBTEXT__;
 }
 
-/* ── Streamlit widget overrides ── */
-div[data-testid="stFileUploader"] > label { display: none; }
+.chat-history-title {
+    margin-top: 1.2rem;
+    margin-bottom: 0.7rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: __SUBTEXT__;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.chat-history-row {
+    margin-top: 0.45rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid __BORDER__;
+    border-radius: 0.65rem;
+    background: __PANEL__;
+    font-size: 0.9rem;
+    color: __TEXT__;
+}
+
+.chat-history-answer {
+    margin: 0.45rem 0 0.6rem;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid __BORDER__;
+    border-radius: 0.65rem;
+    background: __PANEL__;
+}
+
+.chat-history-answer-text {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: __TEXT__;
+}
+
+.chat-history-answer-source {
+    margin-top: 0.45rem;
+    font-size: 0.74rem;
+    color: __SUBTEXT__;
+}
+
+div[data-testid="stFileUploader"] > label {
+    display: none;
+}
 div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] {
-    border: 2px dashed #FDC003 !important;
-    background: rgba(253,192,3,0.03) !important;
+    border: 1px dashed __BORDER__ !important;
+    background: __PANEL__ !important;
     border-radius: 0.75rem !important;
-    padding: 4rem 1.5rem !important;
-    min-height: 230px !important;
+    padding: 1.5rem 1rem !important;
+    min-height: 140px !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 2rem !important;
+    gap: 0.8rem !important;
     transition: background 0.2s ease, border-color 0.2s ease !important;
 }
 div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"]:hover {
-    background: rgba(253,192,3,0.08) !important;
-    border-color: #E6AB00 !important;
+    border-color: __SUBTEXT__ !important;
 }
 div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] [data-testid="stFileUploaderDropzoneInstructions"] {
     order: 1 !important;
@@ -333,15 +393,13 @@ div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] 
     font-size: 0 !important;
     color: transparent !important;
     text-align: center !important;
-    gap: 0.5rem !important;
 }
 div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] [data-testid="stFileUploaderDropzoneInstructions"]::before {
     content: "Drag and drop file here";
     display: block;
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: 1rem;
+    font-size: 0.92rem;
     font-weight: 700;
-    color: #191C1D;
+    color: __TEXT__;
     line-height: 1.35;
 }
 div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] [data-testid="stFileUploaderDropzoneInstructions"] small {
@@ -349,16 +407,16 @@ div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] 
 }
 div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] button {
     order: 2 !important;
-    border-radius: 0.65rem !important;
-    border: 1px solid #0059BB !important;
-    background: #0059BB !important;
-    color: #FFFFFF !important;
+    border-radius: 0.55rem !important;
+    border: 1px solid __SECONDARY__ !important;
+    background: __SECONDARY__ !important;
+    color: #212529 !important;
     font-weight: 700 !important;
-    padding: 0.55rem 1rem !important;
+    padding: 0.45rem 0.9rem !important;
 }
 div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] button:hover {
-    background: #004B9E !important;
-    border-color: #004B9E !important;
+    background: #FFD94D !important;
+    border-color: #FFD94D !important;
 }
 div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] button > div {
     font-size: 0 !important;
@@ -367,25 +425,70 @@ div[data-testid="stFileUploader"] section[data-testid="stFileUploaderDropzone"] 
     content: "Chon file PDF";
     font-size: 0.9rem;
 }
+
 div[data-testid="stTextInput"] > div > div > input {
     border-radius: 0.75rem !important;
-    padding: 1rem 1.25rem !important;
-    background: #F3F4F5 !important;
-    border: none !important;
+    padding: 0.9rem 1rem !important;
+    background: __INPUT_BG__ !important;
+    border: 1px solid __BORDER__ !important;
     font-size: 0.9375rem !important;
+    color: __TEXT__ !important;
+}
+div[data-testid="stTextInput"] > div > div > input::placeholder {
+    color: __INPUT_PLACEHOLDER__ !important;
+    opacity: 0.8 !important;
 }
 div[data-testid="stTextInput"] > div > div > input:focus {
-    box-shadow: 0 0 0 2px rgba(0,89,187,0.2) !important;
+    box-shadow: 0 0 0 2px rgba(139,122,104,0.35) !important;
 }
 .stButton > button {
-    border-radius: 0.5rem !important;
+    border-radius: 0.55rem !important;
     font-weight: 700 !important;
     font-family: 'Inter', sans-serif !important;
+    background: __PRIMARY__ !important;
+    border: 1px solid __PRIMARY__ !important;
+    color: #FFFFFF !important;
+    box-shadow: none !important;
+}
+
+.stButton > button:hover {
+    background: #0069D9 !important;
+    border-color: #0062CC !important;
+}
+
+.stButton > button[kind="tertiary"] {
+    border: none !important;
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
+}
+
+.stToggle label {
+    color: __TEXT__ !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+}
+.stToggle label span {
+    color: __TEXT__ !important;
 }
 
 div[data-testid="stSidebarUserContent"] {
     padding-bottom: 1rem !important;
 }
 
+__SIDEBAR_CSS__
 </style>
 """
+
+    return (
+        css.replace("__BG__", bg)
+        .replace("__PANEL__", panel)
+        .replace("__TEXT__", text)
+        .replace("__SUBTEXT__", subtext)
+        .replace("__BORDER__", border)
+        .replace("__SIDEBAR_BG__", sidebar_bg)
+        .replace("__INPUT_BG__", input_bg)
+        .replace("__INPUT_PLACEHOLDER__", input_placeholder)
+        .replace("__PRIMARY__", primary)
+        .replace("__SECONDARY__", secondary)
+        .replace("__SIDEBAR_CSS__", sidebar_css)
+    )
