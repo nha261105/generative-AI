@@ -1,4 +1,4 @@
-from langchain_classic.retrievers import EnsembleRetriever
+from langchain.retrievers import EnsembleRetriever
 from langchain_community.llms import Ollama
 
 from src.data_layer.vector_store import (

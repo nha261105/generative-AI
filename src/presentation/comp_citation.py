@@ -60,18 +60,26 @@ def render_answer(answer: dict):
         for i, src in enumerate(answer["sources"]):
             source_id = i + 1
 
+            if not isinstance(src, dict):
+                st.markdown(f"- Nguồn {source_id}: {src}")
+                continue
+
             # Highlight nội dung
-            content = clean_content(src["content"])
+            content = clean_content(str(src.get("content", "")))
 
             highlighted = highlight_by_query(content, query)
 
             with st.expander(
-                f"📍 Nguồn {source_id} | {src.get('source_file', 'Tài liệu')} | Trang {src['page']}"
+                f"📍 Nguồn {source_id} | {src.get('source_file', 'Tài liệu')} | Trang {src.get('page', '?')}"
             ):
-                st.markdown(f"""
-                <div class="highlight-box">
-                    {highlighted}
-                </div>
-                """, unsafe_allow_html=True)
+                if highlighted:
+                    st.markdown(f"""
+                    <div class="highlight-box">
+                        {highlighted}
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.caption("Không có đoạn trích chi tiết cho nguồn này.")
 
-                st.caption(f"ID: {src['id']}")
+                if src.get("id") is not None:
+                    st.caption(f"ID: {src['id']}")

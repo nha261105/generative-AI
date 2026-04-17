@@ -1,208 +1,92 @@
-# import streamlit as st
-# import hashlib
-# from pathlib import Path
-
-# from data.history import new_conversation, add_message, load_conversations, delete_conversation
-# from src.presentation.styles import get_css
-# from src.presentation.components import (
-#     render_sidebar,
-#     render_header,
-#     render_upload_section,
-#     render_pipeline,
-#     render_qa_section,
-#     render_answer,
-#     render_status_fab,
-# )
-
-# from src.application.pipeline import process_pdf_to_vectorstore
-# from src.application.rag_chain import get_answer
-
-# # ─── Page config (phải đặt đầu tiên) ──────────────────────────────────────────
-# st.set_page_config(
-#     page_title="SmartDoc AI",
-#     page_icon="📄",
-#     layout="wide",
-#     initial_sidebar_state="expanded",
-# )
-
-# # ─── Inject CSS từ styles.py ───────────────────────────────────────────────────
-# st.markdown(get_css(), unsafe_allow_html=True)
-
-# # ─── Session state ─────────────────────────────────────────────────────────────
-# if "uploaded_file" not in st.session_state:
-#     st.session_state.uploaded_file = None
-# if "answer" not in st.session_state:
-#     st.session_state.answer = None
-# if "processing_step" not in st.session_state:
-#     st.session_state.processing_step = 1  # 1=reading, 2=embedding, 3=ready
-# if "vector_db" not in st.session_state:
-#     st.session_state.vector_db = None
-# if "uploaded_signature" not in st.session_state:
-#     st.session_state.uploaded_signature = None
-# if "processing_error" not in st.session_state:
-#     st.session_state.processing_error = None
-# if "active_conversation_id" not in st.session_state:
-#     st.session_state.active_conversation_id = None
-
-# # ─── Sidebar ───────────────────────────────────────────────────────────────────
-# chat_history = load_conversations()
-# history_by_id = {conv.get("id"): conv for conv in chat_history}
-# selected_conv_id, deleted_conv_id = render_sidebar(
-#     chat_history=chat_history,
-#     active_conversation_id=st.session_state.active_conversation_id,
-# )
-
-# if deleted_conv_id:
-#     deleted_ok = delete_conversation(deleted_conv_id)
-#     if deleted_ok:
-#         if st.session_state.active_conversation_id == deleted_conv_id:
-#             st.session_state.active_conversation_id = None
-#             st.session_state.answer = None
-#             st.session_state.question_input = ""
-#         st.rerun()
-#     else:
-#         st.warning("Không tìm thấy cuộc trò chuyện để xóa.")
-
-# if selected_conv_id:
-#     st.session_state.active_conversation_id = selected_conv_id
-#     selected_conv = history_by_id.get(selected_conv_id)
-
-#     if selected_conv and selected_conv.get("messages"):
-#         last_message = selected_conv["messages"][-1]
-#         st.session_state.answer = {
-#             "text": last_message.get("answer", ""),
-#             "source": last_message.get("source", "Nguồn: Không xác định"),
-#         }
-#         st.session_state.question_input = last_message.get("question", "")
-#     else:
-#         st.session_state.answer = None
-#         st.session_state.question_input = ""
-
-#     st.rerun()
-
-# # ─── Header ────────────────────────────────────────────────────────────────────
-# render_header()
-
-# # ─── Upload section ────────────────────────────────────────────────────────────
-# uploaded_file = render_upload_section()
-# if uploaded_file is not None:
-#     st.session_state.uploaded_file = uploaded_file
-
-#     file_bytes = uploaded_file.getvalue()
-#     file_hash = hashlib.md5(file_bytes).hexdigest()
-#     uploaded_signature = f"{uploaded_file.name}:{uploaded_file.size}:{file_hash}"
-
-#     if uploaded_signature != st.session_state.uploaded_signature:
-#         try:
-#             data_dir = Path("data")
-#             pdf_dir = data_dir / "pdfs"
-#             index_dir = data_dir / "faiss_index" / file_hash
-#             pdf_dir.mkdir(parents=True, exist_ok=True)
-#             index_dir.parent.mkdir(parents=True, exist_ok=True)
-
-#             safe_name = Path(uploaded_file.name).name
-#             pdf_path = pdf_dir / safe_name
-#             with open(pdf_path, "wb") as f:
-#                 f.write(file_bytes)
-
-#             st.session_state.processing_step = 1
-#             st.session_state.answer = None
-#             st.session_state.processing_error = None
-
-#             with st.spinner("Đang xử lý tài liệu PDF và tạo chỉ mục..."):
-#                 st.session_state.processing_step = 2
-#                 vector_db = process_pdf_to_vectorstore(
-#                     pdf_path=str(pdf_path),
-#                     vector_store_path=str(index_dir),
-#                 )
-
-#             st.session_state.vector_db = vector_db
-#             st.session_state.processing_step = 3
-#             st.session_state.uploaded_signature = uploaded_signature
-#             st.success("Tài liệu đã sẵn sàng để hỏi đáp.")
-#         except Exception as exc:
-#             st.session_state.processing_error = str(exc)
-#             st.session_state.vector_db = None
-#             st.session_state.processing_step = 1
-#             st.error(f"Không thể xử lý PDF: {exc}")
-
-# # ─── Processing pipeline ───────────────────────────────────────────────────────
-# progress_map = {1: 30, 2: 65, 3: 100}
-# render_pipeline(progress=progress_map.get(st.session_state.processing_step, 0))
-
-# # ─── Q&A section ───────────────────────────────────────────────────────────────
-# question, send_clicked = render_qa_section()
-
-# if send_clicked:
-#     if not question:
-#         st.warning("Vui lòng nhập câu hỏi trước khi gửi.")
-#     elif st.session_state.vector_db is None:
-#         st.warning("Vui lòng upload và xử lý PDF trước khi đặt câu hỏi.")
-#     else:
-#         try:
-#             with st.spinner("SmartDoc AI đang phân tích câu hỏi..."):
-#                 response_text, sources = get_answer(question, st.session_state.vector_db)
-
-#             source_text = "Nguồn: " + (", ".join(sources) if sources else "Không xác định")
-
-#             active_conv_id = st.session_state.active_conversation_id
-#             if not active_conv_id:
-#                 current_doc_name = (
-#                     st.session_state.uploaded_file.name
-#                     if st.session_state.uploaded_file is not None
-#                     else ""
-#                 )
-#                 created_conv = new_conversation(doc_name=current_doc_name)
-#                 active_conv_id = created_conv["id"]
-#                 st.session_state.active_conversation_id = active_conv_id
-
-#             saved_conv = add_message(
-#                 conv_id=active_conv_id,
-#                 question=question,
-#                 answer=response_text,
-#                 source=source_text,
-#             )
-
-#             if saved_conv is None:
-#                 current_doc_name = (
-#                     st.session_state.uploaded_file.name
-#                     if st.session_state.uploaded_file is not None
-#                     else ""
-#                 )
-#                 created_conv = new_conversation(doc_name=current_doc_name)
-#                 st.session_state.active_conversation_id = created_conv["id"]
-#                 add_message(
-#                     conv_id=created_conv["id"],
-#                     question=question,
-#                     answer=response_text,
-#                     source=source_text,
-#                 )
-
-#             st.session_state.answer = {
-#                 "text": response_text,
-#                 "source": source_text,
-#             }
-#         except Exception as exc:
-#             st.error(f"Lỗi khi chạy RAG chain: {exc}")
-
-# if st.session_state.answer:
-#     render_answer(st.session_state.answer)
-
-# # ─── Status FAB ────────────────────────────────────────────────────────────────
-# render_status_fab()
-
-
 import streamlit as st
+import hashlib
 from pathlib import Path
-
-from src.application.pipeline import process_pdf_to_vectorstore
+from data.history import (
+    add_message,
+    clear_all,
+    clear_vector_store_directory,
+    delete_conversation,
+    get_conversation,
+    load_conversations,
+    new_conversation,
+)
+from src.application.chain_citation import get_answer_with_citation
+from src.application.chain_hybrid import get_answer_with_hybrid_citation
 from src.application.chain_multidoc import get_answer_multidoc
+from src.application.pipeline import process_pdf_to_vectorstore
+from src.presentation.comp_citation import render_answer as render_citation_answer
 from src.presentation.comp_multidoc import render_doc_filter
-from datetime import datetime
+from src.presentation.components import (
+    render_answer,
+    render_collapsed_sidebar_toggle,
+    render_conversation_history,
+    render_header,
+    render_processing_timeline,
+    render_qa_section,
+    render_sidebar,
+    render_upload_section,
+)
+from src.presentation.styles import get_css
 
 
-<<<<<<< HEAD
-# ─── Inject CSS từ styles.py ───────────────────────────────────────────────────
+st.set_page_config(
+    page_title="SmartDoc AI",
+    page_icon="📄",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+
+def normalize_sources(raw_sources) -> list[dict]:
+    """Chuẩn hóa sources để UI citation không bị vỡ schema."""
+    normalized = []
+    for i, src in enumerate(raw_sources or [], start=1):
+        if isinstance(src, dict):
+            normalized.append(
+                {
+                    "id": src.get("id", i),
+                    "page": src.get("page", "?"),
+                    "content": str(src.get("content", "")).strip(),
+                    "source_file": src.get("source_file", "Tài liệu"),
+                }
+            )
+            continue
+
+        source_text = str(src).strip()
+        source_file = "Tài liệu"
+        page = "?"
+        if " - Trang " in source_text:
+            source_file, _, raw_page = source_text.partition(" - Trang ")
+            source_file = source_file.strip() or "Tài liệu"
+            page = raw_page.strip() or "?"
+
+        normalized.append(
+            {
+                "id": i,
+                "page": page,
+                "content": source_text,
+                "source_file": source_file,
+            }
+        )
+
+    return normalized
+
+
+def build_source_text(sources: list[dict]) -> str:
+    labels = []
+    for src in sources:
+        source_file = str(src.get("source_file", "Tài liệu")).strip() or "Tài liệu"
+        page = src.get("page")
+        if page in (None, "", "?"):
+            labels.append(source_file)
+        else:
+            labels.append(f"{source_file} - Trang {page}")
+
+    unique_labels = list(dict.fromkeys(labels))
+    return "Nguồn: " + (", ".join(unique_labels) if unique_labels else "Không xác định")
+
+
+# Theme + local UI states
 if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = False
 if "sidebar_collapsed" not in st.session_state:
@@ -218,13 +102,14 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ─── Session state ─────────────────────────────────────────────────────────────
+
+# Core states
 if "uploaded_file" not in st.session_state:
     st.session_state.uploaded_file = None
 if "answer" not in st.session_state:
     st.session_state.answer = None
 if "processing_step" not in st.session_state:
-    st.session_state.processing_step = 0  # 0=pending, 1=reading, 2=embedding, 3=ready
+    st.session_state.processing_step = 0
 if "vector_db" not in st.session_state:
     st.session_state.vector_db = None
 if "uploaded_signature" not in st.session_state:
@@ -239,16 +124,27 @@ if "chunk_overlap" not in st.session_state:
     st.session_state.chunk_overlap = 150
 if "retrieval_mode" not in st.session_state:
     st.session_state.retrieval_mode = "vector"
+if "last_question" not in st.session_state:
+    st.session_state.last_question = ""
+if "use_multidoc" not in st.session_state:
+    st.session_state.use_multidoc = False
 
 MAX_UPLOAD_MB = 25
 
-# ─── Sidebar ───────────────────────────────────────────────────────────────────
+
+# Sidebar
 chat_history = load_conversations()
 history_by_id = {conv.get("id"): conv for conv in chat_history}
+
 if st.session_state.sidebar_collapsed:
     selected_conv_id = None
     deleted_conv_id = None
     new_chat_clicked = False
+    clear_history_clicked = False
+    clear_vector_clicked = False
+    selected_chunk_size = st.session_state.chunk_size
+    selected_chunk_overlap = st.session_state.chunk_overlap
+    selected_retrieval_mode = st.session_state.retrieval_mode
     toggle_sidebar_clicked = render_collapsed_sidebar_toggle()
 else:
     (
@@ -269,13 +165,6 @@ else:
         chunk_overlap=st.session_state.chunk_overlap,
         retrieval_mode=st.session_state.retrieval_mode,
     )
-
-if st.session_state.sidebar_collapsed:
-    clear_history_clicked = False
-    clear_vector_clicked = False
-    selected_chunk_size = st.session_state.chunk_size
-    selected_chunk_overlap = st.session_state.chunk_overlap
-    selected_retrieval_mode = st.session_state.retrieval_mode
 
 st.session_state.chunk_size = selected_chunk_size
 st.session_state.chunk_overlap = selected_chunk_overlap
@@ -305,49 +194,35 @@ if clear_vector_clicked:
         st.rerun()
     st.error("Không thể xóa vector store. Vui lòng thử lại.")
 
+if deleted_conv_id:
+    deleted_ok = delete_conversation(deleted_conv_id)
+    if deleted_ok:
+        if st.session_state.active_conversation_id == deleted_conv_id:
+            st.session_state.active_conversation_id = None
+            st.session_state.answer = None
+            st.session_state.question_input = ""
+            st.session_state.selected_message_index = None
+        st.rerun()
+    st.warning("Không tìm thấy cuộc trò chuyện để xóa.")
+
 if new_chat_clicked:
     st.session_state.active_conversation_id = None
     st.session_state.answer = None
     st.session_state.question_input = ""
-    st.session_state.uploaded_file = None
-    st.session_state.vector_db = None
-    st.session_state.uploaded_signature = None
-    st.session_state.processing_error = None
-    st.session_state.processing_step = 0
     st.session_state.selected_message_index = None
+    st.session_state.last_question = ""
     st.rerun()
-=======
-# =========================
-# SESSION STATE
-# =========================
-if "vector_db" not in st.session_state:
-    st.session_state.vector_db = None
 
-if "last_question" not in st.session_state:
-    st.session_state.last_question = None
-
-
-# =========================
-# UPLOAD
-# =========================
-uploaded_files = st.file_uploader(
-    "📄 Upload nhiều PDF",
-    type="pdf",
-    accept_multiple_files=True
-)
->>>>>>> d14cc33 (feat: Multi-document RAG với metadata filtering)
-
-if uploaded_files:
-
-    data_dir = Path("data/pdfs")
-    data_dir.mkdir(parents=True, exist_ok=True)
-
-<<<<<<< HEAD
+if selected_conv_id:
+    st.session_state.active_conversation_id = selected_conv_id
+    selected_conv = history_by_id.get(selected_conv_id)
     if selected_conv and selected_conv.get("messages"):
         last_message = selected_conv["messages"][-1]
         st.session_state.answer = {
             "text": last_message.get("answer", ""),
             "source": last_message.get("source", "Nguồn: Không xác định"),
+            "sources": normalize_sources(last_message.get("sources", [])),
+            "query": last_message.get("question", ""),
         }
         st.session_state.question_input = last_message.get("question", "")
         st.session_state.selected_message_index = len(selected_conv["messages"]) - 1
@@ -355,41 +230,31 @@ if uploaded_files:
         st.session_state.answer = None
         st.session_state.question_input = ""
         st.session_state.selected_message_index = None
-=======
-    vector_db = None
->>>>>>> d14cc33 (feat: Multi-document RAG với metadata filtering)
+    st.rerun()
 
-    for file in uploaded_files:
 
-<<<<<<< HEAD
-# ─── Header ────────────────────────────────────────────────────────────────────
+# Header
 selected_dark_mode = render_header(dark_mode=st.session_state.dark_mode)
-
 if selected_dark_mode != st.session_state.dark_mode:
     st.session_state.dark_mode = selected_dark_mode
     st.rerun()
-=======
-        file_path = data_dir / file.name
-        with open(file_path, "wb") as f:
-            f.write(file.getvalue())
->>>>>>> d14cc33 (feat: Multi-document RAG với metadata filtering)
 
-        temp_db = process_pdf_to_vectorstore(
-            pdf_path=str(file_path),
-            vector_store_path="data/faiss_temp"
-        )
 
-<<<<<<< HEAD
+# Upload
+uploaded_file = render_upload_section()
+if uploaded_file is not None:
+    st.session_state.uploaded_file = uploaded_file
+
     if uploaded_file.size > MAX_UPLOAD_MB * 1024 * 1024:
-        st.session_state.processing_error = "File PDF vuot qua gioi han 25 MB."
+        st.session_state.processing_error = "File PDF vượt quá giới hạn 25 MB."
         st.session_state.vector_db = None
         st.session_state.processing_step = 0
-        st.error("File PDF vuot qua gioi han 25 MB.")
+        st.error(st.session_state.processing_error)
     elif not uploaded_file.name.lower().endswith(".pdf"):
-        st.session_state.processing_error = "Chi chap nhan file PDF."
+        st.session_state.processing_error = "Chỉ chấp nhận file PDF."
         st.session_state.vector_db = None
         st.session_state.processing_step = 0
-        st.error("Chi chap nhan file PDF.")
+        st.error(st.session_state.processing_error)
     else:
         file_bytes = uploaded_file.getvalue()
         file_hash = hashlib.md5(file_bytes).hexdigest()
@@ -434,83 +299,88 @@ if selected_dark_mode != st.session_state.dark_mode:
                 st.session_state.processing_step = 0
                 st.error(f"Không thể xử lý PDF: {exc}")
 
+
+# Processing timeline
 render_processing_timeline(st.session_state.processing_step)
-=======
-        # =========================
-        # FIX METADATA (QUAN TRỌNG)
-        # =========================
-        upload_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        for doc in temp_db.docstore._dict.values():
-            doc.metadata.update({
-                "filename": file.name,
-                "upload_time": upload_time,
-                "file_type": "pdf"
-            })
-
-        if vector_db is None:
-            vector_db = temp_db
-        else:
-            vector_db.merge_from(temp_db)
-
-    st.session_state.vector_db = vector_db
-    st.success("✅ Đã xử lý xong nhiều tài liệu")
 
 
-# =========================
-# FILTER
-# =========================
-selected_filter = render_doc_filter(st.session_state.vector_db)
+# Feature toggles
+st.markdown("#### Tùy chọn truy vấn")
+st.session_state.use_multidoc = st.toggle(
+    "Bật lọc tài liệu (Multidoc)",
+    value=st.session_state.use_multidoc,
+)
 
->>>>>>> d14cc33 (feat: Multi-document RAG với metadata filtering)
-
-# =========================
-# QUESTION
-# =========================
-question = st.text_input("💬 Nhập câu hỏi")
-send_clicked = st.button("Gửi")
+metadata_filter = None
+if st.session_state.use_multidoc:
+    metadata_filter = render_doc_filter(st.session_state.vector_db)
+    if st.session_state.retrieval_mode == "hybrid":
+        st.caption("Multidoc đang bật: hệ thống sẽ ưu tiên truy xuất theo bộ lọc tài liệu.")
 
 
-# =========================
-# RAG FLOW
-# =========================
+# Question input
+question, send_clicked = render_qa_section()
+
+
+# RAG flow
 if send_clicked:
-
     if not question:
-        st.warning("⚠️ Nhập câu hỏi")
-
+        st.warning("Vui lòng nhập câu hỏi trước khi gửi.")
     elif st.session_state.vector_db is None:
-        st.warning("⚠️ Upload PDF trước")
-
+        st.warning("Vui lòng upload PDF trước khi đặt câu hỏi.")
     elif question == st.session_state.last_question:
-        st.info("⏳ Câu hỏi đã xử lý")
-
+        st.info("Câu hỏi này vừa được xử lý, vui lòng đổi câu hỏi hoặc hỏi tiếp.")
     else:
-<<<<<<< HEAD
         try:
             active_conversation = get_conversation(st.session_state.active_conversation_id)
             chat_context = active_conversation.get("messages", []) if active_conversation else []
 
             with st.spinner("SmartDoc AI đang phân tích câu hỏi..."):
-                if st.session_state.retrieval_mode == "hybrid":
-                    response, sources = get_answer_with_hybrid_citation(
+                comparison = None
+
+                if st.session_state.use_multidoc:
+                    response, raw_sources = get_answer_multidoc(
+                        question,
+                        st.session_state.vector_db,
+                        metadata_filter=metadata_filter,
+                    )
+                elif st.session_state.retrieval_mode == "hybrid":
+                    vector_response, vector_raw_sources = get_answer_with_citation(
                         question,
                         st.session_state.vector_db,
                         chat_history=chat_context,
                     )
-                else:
-                    response, sources = get_answer_with_citation(
+                    hybrid_response, hybrid_raw_sources = get_answer_with_hybrid_citation(
                         question,
                         st.session_state.vector_db,
                         chat_history=chat_context,
                     )
 
-            source_pages = sorted({src.get("page") for src in sources if src.get("page") is not None})
-            source_text = (
-                "Nguồn: " + ", ".join([f"Trang {page}" for page in source_pages])
-                if source_pages
-                else "Nguồn: Không xác định"
-            )
+                    vector_sources = normalize_sources(vector_raw_sources)
+                    hybrid_sources = normalize_sources(hybrid_raw_sources)
+
+                    comparison = {
+                        "vector": {
+                            "text": vector_response,
+                            "source": build_source_text(vector_sources),
+                        },
+                        "hybrid": {
+                            "text": hybrid_response,
+                            "source": build_source_text(hybrid_sources),
+                        },
+                    }
+
+                    response = hybrid_response
+                    raw_sources = hybrid_raw_sources
+                else:
+                    response, raw_sources = get_answer_with_citation(
+                        question,
+                        st.session_state.vector_db,
+                        chat_history=chat_context,
+                    )
+
+            sources = normalize_sources(raw_sources)
+            source_text = build_source_text(sources)
 
             active_conv_id = st.session_state.active_conversation_id
             if not active_conv_id:
@@ -544,11 +414,16 @@ if send_clicked:
                     answer=response,
                     source=source_text,
                 )
+
             st.session_state.answer = {
                 "text": response,
+                "source": source_text,
                 "sources": sources,
-                "query": question
+                "query": question,
+                "retrieval_mode": st.session_state.retrieval_mode,
+                "comparison": comparison,
             }
+            st.session_state.last_question = question
 
             active_conversation = get_conversation(st.session_state.active_conversation_id)
             if active_conversation and active_conversation.get("messages"):
@@ -556,9 +431,20 @@ if send_clicked:
         except Exception as exc:
             st.error(f"Lỗi khi chạy RAG chain: {exc}")
 
-if st.session_state.answer:
-    render_answer(st.session_state.answer)
 
+# Render answer
+if st.session_state.answer:
+    answer_payload = st.session_state.answer
+    comparison = answer_payload.get("comparison")
+
+    if answer_payload.get("retrieval_mode") == "hybrid" and comparison:
+        render_answer(comparison["vector"], comparison["hybrid"])
+        st.markdown("#### Kết quả Hybrid (chi tiết nguồn)")
+
+    render_citation_answer(answer_payload)
+
+
+# Conversation history panel
 if st.session_state.active_conversation_id:
     conv = get_conversation(st.session_state.active_conversation_id)
     messages = conv.get("messages", []) if conv else []
@@ -567,21 +453,3 @@ if st.session_state.active_conversation_id:
         selected_index=st.session_state.selected_message_index,
         key_prefix=st.session_state.active_conversation_id,
     )
-=======
-        st.session_state.last_question = question
-
-        with st.spinner("🤖 Đang suy nghĩ..."):
-
-            response_text, sources = get_answer_multidoc(
-                question,
-                st.session_state.vector_db,
-                metadata_filter=selected_filter
-            )
-
-        st.write("## 💬 Trả lời")
-        st.write(response_text)
-
-        st.write("## 📚 Nguồn")
-        for s in sources:
-            st.write(f"- {s}")
->>>>>>> d14cc33 (feat: Multi-document RAG với metadata filtering)

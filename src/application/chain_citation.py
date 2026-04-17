@@ -43,14 +43,35 @@ def get_answer_with_citation(
     # ===== 3. Lấy docs =====
     relevant_docs = retriever.invoke(query)
     print(f">>Tìm thấy {len(relevant_docs)} đoạn tài liệu liên quan")
+
+    if not relevant_docs:
+        return (
+            "Mình chưa tìm thấy ngữ cảnh phù hợp trong tài liệu đã index để trả lời an toàn. "
+            "Bạn hãy thử diễn đạt lại câu hỏi hoặc upload thêm tài liệu liên quan.",
+            [
+                {
+                    "id": 1,
+                    "page": "?",
+                    "content": "Không tìm thấy đoạn trích phù hợp trong tài liệu hiện tại.",
+                    "source_file": "Không xác định",
+                }
+            ],
+        )
+
     context_list = []
     detailed_sources = []
 
     # # ===== 4. Build context + mapping =====
-    for i,doc in enumerate(relevant_docs):
+    for i, doc in enumerate(relevant_docs):
         source_id = i + 1
-        page_num = doc.metadata.get("page",0) + 1
+        raw_page = doc.metadata.get("page", 0)
+        page_num = raw_page + 1 if isinstance(raw_page, int) else (raw_page or "?")
         content = doc.page_content
+        source_file = str(
+            doc.metadata.get("filename")
+            or doc.metadata.get("source")
+            or "Tài liệu"
+        ).split("/")[-1]
 
         context_list.append(
             f"[Nguồn {source_id} | Trang {page_num}]: {content}"
@@ -60,7 +81,7 @@ def get_answer_with_citation(
             "id": source_id,
             "page": page_num,
             "content": content,
-            "source_file": doc.metadata.get("source", "N/A"),
+            "source_file": source_file,
         })
 
     context_string = "\n\n".join(context_list)
