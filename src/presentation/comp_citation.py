@@ -26,7 +26,7 @@ def clean_content(text: str):
 
     return text.strip()
 
-def render_answer(answer: dict):
+def render_answer(answer: dict, key_prefix: str = "default"):
     """Render câu trả lời + citation + highlight"""
 
     # ===== 2. Hiển thị câu trả lời =====
@@ -39,7 +39,7 @@ def render_answer(answer: dict):
 
     if st_copy_to_clipboard is not None:
         st.markdown('<div title="Sao chép">', unsafe_allow_html=True)
-        st_copy_to_clipboard(answer["text"])
+        st_copy_to_clipboard(answer["text"], key=f"copy_{key_prefix}")
         st.markdown('</div>', unsafe_allow_html=True)
 
     # ===== 3. Hiển thị vùng copy =====

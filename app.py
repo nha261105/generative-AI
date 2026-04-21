@@ -1,5 +1,7 @@
 import streamlit as st
 import hashlib
+import importlib
+import time
 from pathlib import Path
 from data.history import (
     add_message,
@@ -124,10 +126,14 @@ if "chunk_overlap" not in st.session_state:
     st.session_state.chunk_overlap = 150
 if "retrieval_mode" not in st.session_state:
     st.session_state.retrieval_mode = "vector"
-if "last_question" not in st.session_state:
-    st.session_state.last_question = ""
+if "last_query_fingerprint" not in st.session_state:
+    st.session_state.last_query_fingerprint = None
 if "use_multidoc" not in st.session_state:
     st.session_state.use_multidoc = False
+if "benchmark_log" not in st.session_state:
+    st.session_state.benchmark_log = []
+if "last_index_stats" not in st.session_state:
+    st.session_state.last_index_stats = None
 
 MAX_UPLOAD_MB = 25
 
@@ -210,7 +216,7 @@ if new_chat_clicked:
     st.session_state.answer = None
     st.session_state.question_input = ""
     st.session_state.selected_message_index = None
-    st.session_state.last_question = ""
+    st.session_state.last_query_fingerprint = None
     st.rerun()
 
 if selected_conv_id:
@@ -282,17 +288,30 @@ if uploaded_file is not None:
 
                 with st.spinner("Đang xử lý tài liệu PDF và tạo chỉ mục..."):
                     st.session_state.processing_step = 2
-                    vector_db = process_pdf_to_vectorstore(
+                    vector_db, index_stats = process_pdf_to_vectorstore(
                         pdf_path=str(pdf_path),
                         vector_store_path=str(index_dir),
                         chunk_size=st.session_state.chunk_size,
                         chunk_overlap=st.session_state.chunk_overlap,
+                        return_stats=True,
                     )
 
                 st.session_state.vector_db = vector_db
+                st.session_state.last_index_stats = index_stats
                 st.session_state.processing_step = 3
                 st.session_state.uploaded_signature = uploaded_signature
                 st.success("Upload file thành công. Bạn có thể bắt đầu hỏi đáp.")
+
+                st.session_state.benchmark_log.append(
+                    {
+                        "benchmark_type": "chunk_strategy",
+                        "chunk_size": index_stats.get("chunk_size"),
+                        "chunk_overlap": index_stats.get("chunk_overlap"),
+                        "doc_count": index_stats.get("doc_count"),
+                        "chunk_count": index_stats.get("chunk_count"),
+                        "total_time_sec": index_stats.get("total_time_sec"),
+                    }
+                )
             except Exception as exc:
                 st.session_state.processing_error = str(exc)
                 st.session_state.vector_db = None
@@ -319,17 +338,32 @@ if st.session_state.use_multidoc:
 
 
 # Question input
-question, send_clicked = render_qa_section()
+question, send_clicked, compare_clicked = render_qa_section()
 
 
 # RAG flow
-if send_clicked:
+if send_clicked or compare_clicked:
+    interaction_mode = (
+        "compare_vector_graphrag"
+        if compare_clicked
+        else st.session_state.retrieval_mode
+    )
+    query_fingerprint = (
+        question.strip(),
+        interaction_mode,
+        st.session_state.use_multidoc,
+        tuple(sorted((metadata_filter or {}).items())),
+    )
+
     if not question:
         st.warning("Vui lòng nhập câu hỏi trước khi gửi.")
     elif st.session_state.vector_db is None:
         st.warning("Vui lòng upload PDF trước khi đặt câu hỏi.")
-    elif question == st.session_state.last_question:
-        st.info("Câu hỏi này vừa được xử lý, vui lòng đổi câu hỏi hoặc hỏi tiếp.")
+    elif query_fingerprint == st.session_state.last_query_fingerprint:
+        st.info(
+            "Câu hỏi này vừa được xử lý trong cùng chế độ truy xuất. "
+            "Bạn có thể đổi mode hoặc đặt câu hỏi khác."
+        )
     else:
         try:
             active_conversation = get_conversation(st.session_state.active_conversation_id)
@@ -337,27 +371,172 @@ if send_clicked:
 
             with st.spinner("SmartDoc AI đang phân tích câu hỏi..."):
                 comparison = None
+                graph_comparison = None
+                current_benchmark = None
 
-                if st.session_state.use_multidoc:
-                    response, raw_sources = get_answer_multidoc(
-                        question,
-                        st.session_state.vector_db,
-                        metadata_filter=metadata_filter,
-                    )
-                elif st.session_state.retrieval_mode == "hybrid":
+                if compare_clicked:
+                    vector_start = time.perf_counter()
                     vector_response, vector_raw_sources = get_answer_with_citation(
                         question,
                         st.session_state.vector_db,
                         chat_history=chat_context,
                     )
-                    hybrid_response, hybrid_raw_sources = get_answer_with_hybrid_citation(
+                    vector_time = time.perf_counter() - vector_start
+
+                    graphrag_module = importlib.import_module("src.application.chain_graphrag")
+                    graph_start = time.perf_counter()
+                    graph_response, graph_raw_sources, graph_stats = graphrag_module.get_answer_with_graphrag_citation(
+                        question,
+                        st.session_state.vector_db,
+                        chat_history=chat_context,
+                    )
+                    graph_time = time.perf_counter() - graph_start
+
+                    vector_sources = normalize_sources(vector_raw_sources)
+                    graph_sources = normalize_sources(graph_raw_sources)
+
+                    overlap = len(
+                        set((s.get("source_file"), s.get("page")) for s in vector_sources)
+                        & set((s.get("source_file"), s.get("page")) for s in graph_sources)
+                    )
+
+                    graph_comparison = {
+                        "query": question,
+                        "vector": {
+                            "text": vector_response,
+                            "source": build_source_text(vector_sources),
+                            "sources": vector_sources,
+                            "time_sec": round(vector_time, 3),
+                        },
+                        "graphrag": {
+                            "text": graph_response,
+                            "source": build_source_text(graph_sources),
+                            "sources": graph_sources,
+                            "time_sec": round(graph_time, 3),
+                            "stats": graph_stats,
+                        },
+                        "source_overlap": overlap,
+                    }
+
+                    current_benchmark = {
+                        "benchmark_type": "graphrag_compare",
+                        "question": question,
+                        "vector_time_sec": round(vector_time, 3),
+                        "graphrag_time_sec": round(graph_time, 3),
+                        "source_overlap": overlap,
+                        "graph_node_count": graph_stats.get("graph_node_count"),
+                        "graph_edge_count": graph_stats.get("graph_edge_count"),
+                        "expanded_count": graph_stats.get("expanded_count"),
+                    }
+
+                    response = graph_response
+                    raw_sources = graph_raw_sources
+                elif st.session_state.use_multidoc:
+                    response, raw_sources = get_answer_multidoc(
+                        question,
+                        st.session_state.vector_db,
+                        metadata_filter=metadata_filter,
+                    )
+                elif st.session_state.retrieval_mode == "selfrag":
+                    selfrag_module = importlib.import_module("src.application.chain_selfrag")
+                    response, raw_sources, selfrag_stats = selfrag_module.get_answer_with_selfrag_citation(
+                        question,
+                        st.session_state.vector_db,
+                        chat_history=chat_context,
+                    )
+                    current_benchmark = {
+                        "benchmark_type": "selfrag",
+                        "question": question,
+                        "hops_used": selfrag_stats.get("hops_used"),
+                        "confidence": selfrag_stats.get("confidence"),
+                        "rewritten_query": selfrag_stats.get("rewritten_query"),
+                        "total_time_sec": selfrag_stats.get("total_time_sec"),
+                    }
+                elif st.session_state.retrieval_mode == "graphrag":
+                    graphrag_module = importlib.import_module("src.application.chain_graphrag")
+                    response, raw_sources, graphrag_stats = graphrag_module.get_answer_with_graphrag_citation(
+                        question,
+                        st.session_state.vector_db,
+                        chat_history=chat_context,
+                    )
+                    current_benchmark = {
+                        "benchmark_type": "graphrag",
+                        "question": question,
+                        "retrieval_backend": graphrag_stats.get("retrieval_backend"),
+                        "graph_enabled": graphrag_stats.get("graph_enabled"),
+                        "seed_count": graphrag_stats.get("seed_count"),
+                        "expanded_count": graphrag_stats.get("expanded_count"),
+                        "graph_node_count": graphrag_stats.get("graph_node_count"),
+                        "graph_edge_count": graphrag_stats.get("graph_edge_count"),
+                        "total_time_sec": graphrag_stats.get("total_time_sec"),
+                    }
+                elif st.session_state.retrieval_mode == "rerank":
+                    vector_start = time.perf_counter()
+                    vector_response, vector_raw_sources = get_answer_with_citation(
+                        question,
+                        st.session_state.vector_db,
+                        chat_history=chat_context,
+                    )
+                    vector_time = time.perf_counter() - vector_start
+
+                    rerank_module = importlib.import_module("src.application.chain_rerank")
+                    response, raw_sources, rerank_stats = rerank_module.get_answer_with_rerank_citation(
                         question,
                         st.session_state.vector_db,
                         chat_history=chat_context,
                     )
 
                     vector_sources = normalize_sources(vector_raw_sources)
+                    rerank_sources = normalize_sources(raw_sources)
+                    overlap = len(
+                        set((s.get("source_file"), s.get("page")) for s in vector_sources)
+                        & set((s.get("source_file"), s.get("page")) for s in rerank_sources)
+                    )
+
+                    comparison = {
+                        "vector": {
+                            "text": vector_response,
+                            "source": build_source_text(vector_sources),
+                        },
+                        "hybrid": {
+                            "text": response,
+                            "source": build_source_text(rerank_sources),
+                        },
+                    }
+
+                    current_benchmark = {
+                        "benchmark_type": "rerank",
+                        "question": question,
+                        "vector_time_sec": round(vector_time, 3),
+                        "rerank_time_sec": rerank_stats.get("total_time_sec"),
+                        "rerank_candidate_count": rerank_stats.get("candidate_count"),
+                        "rerank_returned_count": rerank_stats.get("returned_count"),
+                        "source_overlap": overlap,
+                    }
+                elif st.session_state.retrieval_mode == "hybrid":
+                    vector_start = time.perf_counter()
+                    vector_response, vector_raw_sources = get_answer_with_citation(
+                        question,
+                        st.session_state.vector_db,
+                        chat_history=chat_context,
+                    )
+                    vector_time = time.perf_counter() - vector_start
+
+                    hybrid_start = time.perf_counter()
+                    hybrid_response, hybrid_raw_sources = get_answer_with_hybrid_citation(
+                        question,
+                        st.session_state.vector_db,
+                        chat_history=chat_context,
+                    )
+                    hybrid_time = time.perf_counter() - hybrid_start
+
+                    vector_sources = normalize_sources(vector_raw_sources)
                     hybrid_sources = normalize_sources(hybrid_raw_sources)
+
+                    overlap = len(
+                        set((s.get("source_file"), s.get("page")) for s in vector_sources)
+                        & set((s.get("source_file"), s.get("page")) for s in hybrid_sources)
+                    )
 
                     comparison = {
                         "vector": {
@@ -372,6 +551,13 @@ if send_clicked:
 
                     response = hybrid_response
                     raw_sources = hybrid_raw_sources
+                    current_benchmark = {
+                        "benchmark_type": "hybrid",
+                        "question": question,
+                        "vector_time_sec": round(vector_time, 3),
+                        "hybrid_time_sec": round(hybrid_time, 3),
+                        "source_overlap": overlap,
+                    }
                 else:
                     response, raw_sources = get_answer_with_citation(
                         question,
@@ -379,41 +565,45 @@ if send_clicked:
                         chat_history=chat_context,
                     )
 
+                if current_benchmark:
+                    st.session_state.benchmark_log.append(current_benchmark)
+
             sources = normalize_sources(raw_sources)
             source_text = build_source_text(sources)
 
-            active_conv_id = st.session_state.active_conversation_id
-            if not active_conv_id:
-                current_doc_name = (
-                    st.session_state.uploaded_file.name
-                    if st.session_state.uploaded_file is not None
-                    else ""
-                )
-                created_conv = new_conversation(doc_name=current_doc_name)
-                active_conv_id = created_conv["id"]
-                st.session_state.active_conversation_id = active_conv_id
+            if not compare_clicked:
+                active_conv_id = st.session_state.active_conversation_id
+                if not active_conv_id:
+                    current_doc_name = (
+                        st.session_state.uploaded_file.name
+                        if st.session_state.uploaded_file is not None
+                        else ""
+                    )
+                    created_conv = new_conversation(doc_name=current_doc_name)
+                    active_conv_id = created_conv["id"]
+                    st.session_state.active_conversation_id = active_conv_id
 
-            saved_conv = add_message(
-                conv_id=active_conv_id,
-                question=question,
-                answer=response,
-                source=source_text,
-            )
-
-            if saved_conv is None:
-                current_doc_name = (
-                    st.session_state.uploaded_file.name
-                    if st.session_state.uploaded_file is not None
-                    else ""
-                )
-                created_conv = new_conversation(doc_name=current_doc_name)
-                st.session_state.active_conversation_id = created_conv["id"]
-                add_message(
-                    conv_id=created_conv["id"],
+                saved_conv = add_message(
+                    conv_id=active_conv_id,
                     question=question,
                     answer=response,
                     source=source_text,
                 )
+
+                if saved_conv is None:
+                    current_doc_name = (
+                        st.session_state.uploaded_file.name
+                        if st.session_state.uploaded_file is not None
+                        else ""
+                    )
+                    created_conv = new_conversation(doc_name=current_doc_name)
+                    st.session_state.active_conversation_id = created_conv["id"]
+                    add_message(
+                        conv_id=created_conv["id"],
+                        question=question,
+                        answer=response,
+                        source=source_text,
+                    )
 
             st.session_state.answer = {
                 "text": response,
@@ -422,12 +612,14 @@ if send_clicked:
                 "query": question,
                 "retrieval_mode": st.session_state.retrieval_mode,
                 "comparison": comparison,
+                "graph_comparison": graph_comparison,
             }
-            st.session_state.last_question = question
+            st.session_state.last_query_fingerprint = query_fingerprint
 
-            active_conversation = get_conversation(st.session_state.active_conversation_id)
-            if active_conversation and active_conversation.get("messages"):
-                st.session_state.selected_message_index = len(active_conversation["messages"]) - 1
+            if not compare_clicked:
+                active_conversation = get_conversation(st.session_state.active_conversation_id)
+                if active_conversation and active_conversation.get("messages"):
+                    st.session_state.selected_message_index = len(active_conversation["messages"]) - 1
         except Exception as exc:
             st.error(f"Lỗi khi chạy RAG chain: {exc}")
 
@@ -436,12 +628,76 @@ if send_clicked:
 if st.session_state.answer:
     answer_payload = st.session_state.answer
     comparison = answer_payload.get("comparison")
+    graph_comparison = answer_payload.get("graph_comparison")
+
+    if graph_comparison:
+        st.markdown("#### So sánh trực tiếp: Vector Search vs GraphRAG")
+        st.caption(
+            f"Source overlap: {graph_comparison.get('source_overlap', 0)} | "
+            f"Vector: {graph_comparison['vector'].get('time_sec', '?')}s | "
+            f"GraphRAG: {graph_comparison['graphrag'].get('time_sec', '?')}s"
+        )
+
+        col_vec, col_graph = st.columns(2)
+        with col_vec:
+            st.markdown("##### Vector Search")
+            render_citation_answer(
+                {
+                    "text": graph_comparison["vector"].get("text", ""),
+                    "source": graph_comparison["vector"].get("source", "Nguồn: Không xác định"),
+                    "sources": graph_comparison["vector"].get("sources", []),
+                    "query": graph_comparison.get("query", ""),
+                },
+                key_prefix="compare_vector",
+            )
+
+        with col_graph:
+            st.markdown("##### GraphRAG")
+            render_citation_answer(
+                {
+                    "text": graph_comparison["graphrag"].get("text", ""),
+                    "source": graph_comparison["graphrag"].get("source", "Nguồn: Không xác định"),
+                    "sources": graph_comparison["graphrag"].get("sources", []),
+                    "query": graph_comparison.get("query", ""),
+                },
+                key_prefix="compare_graphrag",
+            )
+        st.write("---")
 
     if answer_payload.get("retrieval_mode") == "hybrid" and comparison:
         render_answer(comparison["vector"], comparison["hybrid"])
         st.markdown("#### Kết quả Hybrid (chi tiết nguồn)")
 
-    render_citation_answer(answer_payload)
+    render_citation_answer(answer_payload, key_prefix="main_answer")
+
+
+with st.expander("Benchmark / Report (Câu 4, 7, 9)", expanded=False):
+    logs = st.session_state.get("benchmark_log", [])
+    if not logs:
+        st.caption("Chưa có dữ liệu benchmark. Hãy upload tài liệu và đặt câu hỏi ở các mode khác nhau.")
+    else:
+        st.write(f"Đã ghi nhận {len(logs)} bản ghi benchmark.")
+
+        chunk_logs = [x for x in logs if x.get("benchmark_type") == "chunk_strategy"]
+        hybrid_logs = [x for x in logs if x.get("benchmark_type") == "hybrid"]
+        rerank_logs = [x for x in logs if x.get("benchmark_type") == "rerank"]
+        graphrag_compare_logs = [x for x in logs if x.get("benchmark_type") == "graphrag_compare"]
+
+        if chunk_logs:
+            st.markdown("**Câu 4 - Chunk Strategy**")
+            st.dataframe(chunk_logs[-10:], use_container_width=True)
+
+        if hybrid_logs:
+            st.markdown("**Câu 7 - Hybrid vs Vector**")
+            st.dataframe(hybrid_logs[-10:], use_container_width=True)
+
+        if rerank_logs:
+            st.markdown("**Câu 9 - Re-rank vs Bi-encoder**")
+            st.dataframe(rerank_logs[-10:], use_container_width=True)
+
+        if graphrag_compare_logs:
+            st.markdown("**Vector vs GraphRAG (1 click compare)**")
+            st.dataframe(graphrag_compare_logs[-10:], use_container_width=True)
 
 
 # Conversation history panel

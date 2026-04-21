@@ -21,6 +21,11 @@ def render_sidebar(
     selected_chunk_overlap = chunk_overlap
     selected_retrieval_mode = retrieval_mode
 
+    if "confirm_clear_history" not in st.session_state:
+        st.session_state.confirm_clear_history = False
+    if "confirm_clear_vector" not in st.session_state:
+        st.session_state.confirm_clear_vector = False
+
     with st.sidebar:
         col_title, col_toggle = st.columns([6, 1], gap="small")
         with col_title:
@@ -60,11 +65,16 @@ def render_sidebar(
         mode_options = {
             "Vector Search": "vector",
             "Hybrid Search (Vector + BM25)": "hybrid",
+            "Re-ranking (Cross-Encoder)": "rerank",
+            "Advanced Self-RAG": "selfrag",
+            "GraphRAG": "graphrag",
         }
+        label_by_mode = {value: key for key, value in mode_options.items()}
+        default_label = label_by_mode.get(retrieval_mode, "Vector Search")
         selected_mode_label = st.selectbox(
             "Chế độ truy xuất",
             options=list(mode_options.keys()),
-            index=0 if retrieval_mode == "vector" else 1,
+            index=list(mode_options.keys()).index(default_label),
             key="retrieval_mode_select",
             label_visibility="collapsed",
         )
@@ -98,13 +108,34 @@ def render_sidebar(
         #     """,
         #     unsafe_allow_html=True,
         # )
-        if st.button(
-            "Xóa toàn bộ lịch sử",
-            key="confirm_clear_history_btn",
-            use_container_width=True,
-        ):
-            clear_history_clicked = True
-            st.toast("Đang xóa toàn bộ lịch sử hội thoại...", icon="⚠️")
+        if not st.session_state.confirm_clear_history:
+            if st.button(
+                "Xóa toàn bộ lịch sử",
+                key="confirm_clear_history_btn",
+                use_container_width=True,
+            ):
+                st.session_state.confirm_clear_history = True
+                st.rerun()
+        else:
+            st.warning("Xác nhận xóa toàn bộ lịch sử hội thoại?")
+            col_confirm_his, col_cancel_his = st.columns(2, gap="small")
+            with col_confirm_his:
+                if st.button(
+                    "Xác nhận",
+                    key="do_clear_history_btn",
+                    use_container_width=True,
+                    type="primary",
+                ):
+                    clear_history_clicked = True
+                    st.session_state.confirm_clear_history = False
+            with col_cancel_his:
+                if st.button(
+                    "Hủy",
+                    key="cancel_clear_history_btn",
+                    use_container_width=True,
+                ):
+                    st.session_state.confirm_clear_history = False
+                    st.rerun()
 
         # st.markdown(
         #     """
@@ -115,13 +146,34 @@ def render_sidebar(
         #     """,
         #     unsafe_allow_html=True,
         # )
-        if st.button(
-            "Xóa Vector Store",
-            key="confirm_clear_vector_btn",
-            use_container_width=True,
-        ):
-            clear_vector_clicked = True
-            st.toast("Đang xóa Vector Store và tài liệu đã tải lên...", icon="🗑️")
+        if not st.session_state.confirm_clear_vector:
+            if st.button(
+                "Xóa Vector Store",
+                key="confirm_clear_vector_btn",
+                use_container_width=True,
+            ):
+                st.session_state.confirm_clear_vector = True
+                st.rerun()
+        else:
+            st.warning("Xác nhận xóa Vector Store và tài liệu đã tải lên?")
+            col_confirm_vec, col_cancel_vec = st.columns(2, gap="small")
+            with col_confirm_vec:
+                if st.button(
+                    "Xác nhận",
+                    key="do_clear_vector_btn",
+                    use_container_width=True,
+                    type="primary",
+                ):
+                    clear_vector_clicked = True
+                    st.session_state.confirm_clear_vector = False
+            with col_cancel_vec:
+                if st.button(
+                    "Hủy",
+                    key="cancel_clear_vector_btn",
+                    use_container_width=True,
+                ):
+                    st.session_state.confirm_clear_vector = False
+                    st.rerun()
 
         st.markdown('<div class="sidebar-section-label">Lịch sử đoạn chat</div>', unsafe_allow_html=True)
         conversations = chat_history or []
@@ -306,17 +358,17 @@ def render_upload_section() -> object:
     return uploaded_file
 
 
-def render_qa_section() -> tuple[str, bool]:
+def render_qa_section() -> tuple[str, bool, bool]:
     """
     Render ô nhập câu hỏi và nút Gửi.
 
     Returns:
-        (question, send_clicked): nội dung câu hỏi và trạng thái nút Gửi.
+        (question, send_clicked, compare_clicked): nội dung câu hỏi và trạng thái nút.
     """
     # st.markdown('<div class="qa-card">', unsafe_allow_html=True)
     st.markdown('<div class="qa-card-label">Đặt câu hỏi</div>', unsafe_allow_html=True)
 
-    col_input, col_btn = st.columns([5, 1])
+    col_input, col_send, col_compare = st.columns([4, 1, 1])
     with col_input:
         question = st.text_input(
             "question",
@@ -324,11 +376,18 @@ def render_qa_section() -> tuple[str, bool]:
             label_visibility="collapsed",
             key="question_input",
         )
-    with col_btn:
+    with col_send:
         send_clicked = st.button("Gửi ➤", use_container_width=True, type="primary")
+    with col_compare:
+        compare_clicked = st.button(
+            "So sánh",
+            use_container_width=True,
+            type="secondary",
+            help="Chạy đồng thời Vector Search và GraphRAG cho cùng câu hỏi",
+        )
 
     st.markdown("</div>", unsafe_allow_html=True)
-    return question, send_clicked
+    return question, send_clicked, compare_clicked
 
 
 # def render_answer(answer: dict):
