@@ -14,6 +14,7 @@ from src.application.chain_citation import get_answer_with_citation
 from src.application.chain_hybrid import get_answer_with_hybrid_citation
 from src.application.chain_multidoc import get_answer_multidoc
 from src.application.pipeline import process_pdf_to_vectorstore
+from src.application.pipeline_docx import process_docx_to_vectorstore
 from src.presentation.comp_citation import render_answer as render_citation_answer
 from src.presentation.comp_multidoc import render_doc_filter
 from src.presentation.components import (
@@ -246,12 +247,12 @@ if uploaded_file is not None:
     st.session_state.uploaded_file = uploaded_file
 
     if uploaded_file.size > MAX_UPLOAD_MB * 1024 * 1024:
-        st.session_state.processing_error = "File PDF vượt quá giới hạn 25 MB."
+        st.session_state.processing_error = "File vượt quá giới hạn 25 MB."
         st.session_state.vector_db = None
         st.session_state.processing_step = 0
         st.error(st.session_state.processing_error)
-    elif not uploaded_file.name.lower().endswith(".pdf"):
-        st.session_state.processing_error = "Chỉ chấp nhận file PDF."
+    elif not uploaded_file.name.lower().endswith((".pdf", ".docx")):
+        st.session_state.processing_error = "Chỉ chấp nhận file PDF hoặc DOCX."
         st.session_state.vector_db = None
         st.session_state.processing_step = 0
         st.error(st.session_state.processing_error)
@@ -280,14 +281,25 @@ if uploaded_file is not None:
                 st.session_state.answer = None
                 st.session_state.processing_error = None
 
-                with st.spinner("Đang xử lý tài liệu PDF và tạo chỉ mục..."):
+                with st.spinner("Đang xử lý tài liệu và tạo chỉ mục..."):
                     st.session_state.processing_step = 2
-                    vector_db = process_pdf_to_vectorstore(
-                        pdf_path=str(pdf_path),
-                        vector_store_path=str(index_dir),
-                        chunk_size=st.session_state.chunk_size,
-                        chunk_overlap=st.session_state.chunk_overlap,
-                    )
+                    file_path = str(pdf_path)
+                    file_ext = uploaded_file.name.lower()
+                    if file_ext.endswith(".pdf"):
+                        vector_db = process_pdf_to_vectorstore(
+                            pdf_path=file_path,
+                            vector_store_path=str(index_dir),
+                            chunk_size=st.session_state.chunk_size,
+                            chunk_overlap=st.session_state.chunk_overlap,
+                        )
+                    elif file_ext.endswith(".docx"):
+                        vector_db = process_docx_to_vectorstore(
+                            docx_path=file_path,
+                            vector_store_path=str(index_dir),
+                            chunk_size=st.session_state.chunk_size,
+                            chunk_overlap=st.session_state.chunk_overlap,
+                        )
+                    
 
                 st.session_state.vector_db = vector_db
                 st.session_state.processing_step = 3
@@ -297,7 +309,7 @@ if uploaded_file is not None:
                 st.session_state.processing_error = str(exc)
                 st.session_state.vector_db = None
                 st.session_state.processing_step = 0
-                st.error(f"Không thể xử lý PDF: {exc}")
+                st.error(f"Không thể xử lý file: {exc}")
 
 
 # Processing timeline
