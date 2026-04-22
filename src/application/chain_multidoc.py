@@ -1,11 +1,11 @@
 import streamlit as st
 from langchain_community.llms import Ollama
+from langchain_core.documents import Document
 from src.application.promts import get_rag_prompt
 
 
-# CACHE LLM (FIX QUAN TRỌNG)
 @st.cache_resource
-def get_llm():
+def _get_llm():
     return Ollama(
         model="qwen2.5:7b",
         temperature=0.7,
@@ -14,22 +14,43 @@ def get_llm():
     )
 
 
+def _filter_docs_manually(docs: list[Document], filenames: list[str]) -> list[Document]:
+    """Filter documents by a list of filenames (for multi-select filter)."""
+    return [
+        doc for doc in docs
+        if (doc.metadata.get("filename") or doc.metadata.get("source", "").split("/")[-1])
+        in filenames
+    ]
+
+
 def get_answer_multidoc(query: str, vector_db, metadata_filter=None):
-    llm = get_llm()
+    llm = _get_llm()
 
-    search_kwargs = {"k": 2, "fetch_k": 5}
+    search_kwargs = {"k": 4, "fetch_k": 12}
 
-    # GẮN FILTER
+    # Determine filter approach
+    multi_filenames = None
     if metadata_filter:
-        search_kwargs["filter"] = metadata_filter
+        filenames_value = metadata_filter.get("filename")
+        if isinstance(filenames_value, list):
+            # Multi-file filter — FAISS doesn't support OR filter natively,
+            # so we retrieve more docs and filter manually
+            multi_filenames = filenames_value
+            search_kwargs["k"] = 8
+        elif filenames_value:
+            # Single file → FAISS exact match filter
+            search_kwargs["filter"] = {"filename": filenames_value}
 
     retriever = vector_db.as_retriever(
         search_type="mmr",
-        search_kwargs=search_kwargs
+        search_kwargs=search_kwargs,
     )
 
-    # RETRIEVE
     docs = retriever.invoke(query)
+
+    # Manual multi-file filter
+    if multi_filenames:
+        docs = _filter_docs_manually(docs, multi_filenames)
 
     if not docs:
         return (
@@ -45,10 +66,10 @@ def get_answer_multidoc(query: str, vector_db, metadata_filter=None):
             ],
         )
 
-    # BUILD CONTEXT
+    # Build context
     context = "\n\n".join([doc.page_content for doc in docs])
 
-    # SOURCE chi tiết để render citation nhất quán
+    # Sources — consistent schema for citation rendering
     sources = []
     for i, doc in enumerate(docs, start=1):
         metadata = doc.metadata or {}
@@ -71,7 +92,7 @@ def get_answer_multidoc(query: str, vector_db, metadata_filter=None):
 
     prompt = get_rag_prompt().format(
         context=context,
-        question=query
+        question=query,
     )
 
     response = llm.invoke(prompt)
