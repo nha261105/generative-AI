@@ -1,42 +1,69 @@
 import streamlit as st
+from langchain_core.documents import Document
 
 
-# CACHE FILTER (FIX CHẬM)
-@st.cache_data
-def build_filter_cache(_vector_db):
-    docs = _vector_db.docstore._dict.values()
+def _get_documents_from_vector_store(vector_db) -> list[Document]:
+    """Extract all documents from FAISS docstore."""
+    docstore = getattr(vector_db, "docstore", None)
+    if docstore is None:
+        return []
+    raw_dict = getattr(docstore, "_dict", {})
+    return [doc for doc in raw_dict.values() if isinstance(doc, Document)]
 
+
+def _build_file_list(vector_db) -> dict[str, str]:
+    """Build {display_name: filename} mapping from vector store metadata."""
+    docs = _get_documents_from_vector_store(vector_db)
     file_map = {}
 
     for doc in docs:
-        filename = doc.metadata.get("filename")
-        upload_time = doc.metadata.get("upload_time", "unknown")
-        file_type = doc.metadata.get("file_type", "unknown")
+        meta = doc.metadata or {}
+        filename = meta.get("filename", "")
+        if not filename:
+            # Fallback to source field
+            source = meta.get("source", "")
+            if source:
+                filename = source.split("/")[-1]
+        if not filename:
+            continue
 
-        if filename:
-            date_only = upload_time.split(" ")[0] if upload_time != "unknown" else "unknown"
+        upload_time = meta.get("upload_time", "")
+        file_type = meta.get("file_type", "")
 
-            display_name = f"{filename} - {date_only} - {file_type}"
-            file_map[display_name] = filename
+        date_part = upload_time.split(" ")[0] if upload_time else "N/A"
+        display = f"{filename} ({date_part}, {file_type})" if file_type else filename
+        file_map[display] = filename
 
     return file_map
 
 
-# UI FILTER
 def render_doc_filter(vector_db):
+    """Render document filter multiselect. Returns metadata filter dict or None."""
     if vector_db is None:
+        st.caption("Chưa có vector store. Upload PDF trước.")
         return None
 
-    file_map = build_filter_cache(vector_db)
+    file_map = _build_file_list(vector_db)
+
+    if not file_map:
+        st.caption("Không tìm thấy metadata tài liệu.")
+        return None
 
     file_list = sorted(file_map.keys())
 
-    selected = st.selectbox(
-        "📂 Chọn tài liệu (tên - ngày - loại)",
-        ["Tất cả"] + file_list
+    selected = st.multiselect(
+        "📂 Lọc theo tài liệu",
+        options=file_list,
+        default=[],
+        placeholder="Tất cả tài liệu",
     )
 
-    if selected == "Tất cả":
+    if not selected:
         return None
 
-    return {"filename": file_map[selected]}
+    # Single file → exact match filter for FAISS
+    if len(selected) == 1:
+        return {"filename": file_map[selected[0]]}
+
+    # Multiple files → return list of filenames (handled in chain_multidoc)
+    return {"filename": [file_map[s] for s in selected]}
