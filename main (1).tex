@@ -8,6 +8,23 @@
 \usepackage{hyperref}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage{setspace}
+\usepackage{ifthen}
+\usepackage{caption}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage{float}
+
+\pgfplotsset{compat=1.18}
+
+% ---- Custom colors ----
+\definecolor{ragblue}{HTML}{378ADD}
+\definecolor{graphred}{HTML}{D85A30}
+\definecolor{headercolor}{HTML}{F1EFE8}
+\definecolor{bordercolor}{HTML}{B4B2A9}
 
 \lstset{
   basicstyle=\ttfamily\small,
@@ -17,8 +34,8 @@
 }
 
 \begin{document}
-
-\title{SmartDoc AI - Intelligent Document Q\&A System}
+\setstretch{1.5}
+\title{SmartDoc AI - Intelligent Document \texorpdfstring{Q\&A}{Q&A} System}
 
 \author{
   \IEEEauthorblockN{Hồ Hoàng Long\textsuperscript{1}, Nguyễn Hoàng Anh\textsuperscript{1}, Đỗ Nhật Huy\textsuperscript{1}, Bùi Nguyễn Trọng Nghĩa\textsuperscript{1}, Lưu Phùng Khải Nguyên\textsuperscript{1}}
@@ -58,7 +75,7 @@ Dự án SmartDoc AI được nhóm thực hiện nhằm mục đích xây dựn
 
 Phạm vi dự án SmartDoc AI tập trung vào việc xây dựng một hệ thống hỏi đáp thông minh với các giới hạn và mục tiêu cụ thể như sau:
 \begin{itemize}
-  \item \textbf{Tài liệu đầu vào:} Phiên bản hiện tại tập trung xử lý tài liệu PDF; hỗ trợ DOCX được đưa vào hướng phát triển tiếp theo.
+  \item \textbf{Tài liệu đầu vào:} Hệ thống hỗ trợ xử lý đa dạng các định dạng tài liệu, tiêu biểu là PDF và DOCX.
   \item \textbf{Mô hình ngôn ngữ:} Sử dụng Qwen2.5 thông qua Ollama, với khả năng xử lý đa ngôn ngữ và tối ưu hóa dành cho Tiếng Việt.
   \item \textbf{Môi trường triển khai:} Ứng dụng được thiết kế và vận hành hoàn toàn trên môi trường WSL (Windows Subsystem for Linux) kết hợp với môi trường ảo venv. Việc sử dụng WSL cho phép hệ thống tận dụng tối ưu hiệu suất của các thư viện xử lý vector và mô hình ngôn ngữ lớn trên nhân Linux, trong khi môi trường ảo giúp cô lập các phụ thuộc (dependencies), đảm bảo tính ổn định và nhất quán trong suốt quá trình thực nghiệm.
   \item \textbf{Công nghệ mô hình:} Sử dụng các mô hình ngôn ngữ lớn và thư viện hoàn toàn mã nguồn mở, miễn phí như Qwen2.5:7b, LangChain, và FAISS.
@@ -86,7 +103,7 @@ Kiến trúc RAG tiêu biểu bao gồm hai quá trình chính: quá trình lậ
 
 \begin{figure}[h]
   \centering
-  % \includegraphics[width=\linewidth]{rag_architecture.png}
+  \includegraphics[width=\linewidth]{imgs/rag_architecture.png}
   \caption{Sơ đồ kiến trúc hệ thống RAG}
   \label{fig:rag}
 \end{figure}
@@ -344,21 +361,7 @@ Dựa trên lộ trình phát triển của dự án SmartDoc AI, hệ thống �
 \subsection{Module 1 - Hỗ trợ tệp tin DOCX}
 \textbf{Mục tiêu:} Mở rộng hệ thống để xử lý thêm tài liệu DOCX bên cạnh PDF.
 
-\textbf{Hiện trạng triển khai:} Ở phiên bản hiện tại, luồng upload và xử lý chính vẫn đang tập trung vào PDF. Phần phụ thuộc \texttt{python-docx} đã được chuẩn bị trong môi trường, nhưng chưa có pipeline DOCX độc lập được tích hợp vào giao diện người dùng.
-
-\textbf{Hướng hoàn thiện:}
-\begin{itemize}
-  \item Bổ sung loader DOCX trong tầng \texttt{application}.
-  \item Mở rộng widget upload để nhận cả \texttt{.docx}.
-  \item Chuẩn hóa metadata cho DOCX tương tự PDF để tái sử dụng các chain hiện có.
-\end{itemize}
-
-\begin{figure}[h]
-  \centering
-  \IfFileExists{docs/images/module1_docx_placeholder.png}{\includegraphics[width=\linewidth]{docs/images/module1_docx_placeholder.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 1: docs/images/module1_docx_placeholder.png}}}
-  \caption{Minh họa Module 1 - DOCX (placeholder)}
-  \label{fig:module1_docx}
-\end{figure}
+\textbf{Hiện trạng triển khai:} Đã tích hợp thành công. Giao diện người dùng cho phép tải lên đồng thời cả tệp PDF và DOCX. Hệ thống (pipeline) tự động phân loại và định tuyến (dynamic dispatch) để trích xuất văn bản tương ứng, sau đó gộp chung tất cả các khối văn bản (chunks) vào một Vector Store (FAISS) duy nhất.
 
 \subsection{Module 2 - Lưu trữ lịch sử hội thoại}
 \textbf{Mục tiêu:} Lưu lại lịch sử hỏi đáp để người dùng có thể tiếp tục hoặc xem lại các cuộc trò chuyện trước.
@@ -372,13 +375,6 @@ Dựa trên lộ trình phát triển của dự án SmartDoc AI, hệ thống �
 
 \textbf{Kết quả:} Module đã hoạt động ổn định, hỗ trợ tốt trải nghiệm làm việc nhiều phiên liên tiếp.
 
-\begin{figure}[h]
-  \centering
-  \IfFileExists{docs/images/module2_history_placeholder.png}{\includegraphics[width=\linewidth]{docs/images/module2_history_placeholder.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 2: docs/images/module2_history_placeholder.png}}}
-  \caption{Minh họa Module 2 - Lưu trữ lịch sử hội thoại (placeholder)}
-  \label{fig:module2_history}
-\end{figure}
-
 \subsection{Module 3 - Quản lý trạng thái hệ thống}
 \textbf{Mục tiêu:} Cho phép người dùng làm sạch dữ liệu nhanh, tránh nhiễu ngữ cảnh từ phiên cũ.
 
@@ -391,12 +387,6 @@ Dựa trên lộ trình phát triển của dự án SmartDoc AI, hệ thống �
 
 \textbf{Kết quả:} Đáp ứng đúng yêu cầu quản trị dữ liệu ở mức giao diện và tầng lưu trữ cục bộ.
 
-\begin{figure}[h]
-  \centering
-  \IfFileExists{docs/images/module3_state_placeholder.png}{\includegraphics[width=\linewidth]{docs/images/module3_state_placeholder.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 3: docs/images/module3_state_placeholder.png}}}
-  \caption{Minh họa Module 3 - Quản lý trạng thái hệ thống (placeholder)}
-  \label{fig:module3_state}
-\end{figure}
 
 \subsection{Module 4 - Tùy chỉnh chiến lược phân đoạn}
 \textbf{Mục tiêu:} Điều chỉnh \texttt{chunk\_size} và \texttt{chunk\_overlap} theo từng loại tài liệu để tăng chất lượng truy xuất.
@@ -410,10 +400,15 @@ Dựa trên lộ trình phát triển của dự án SmartDoc AI, hệ thống �
 
 \textbf{Giới hạn hiện tại:} Chưa có bộ test tự động để chấm điểm chất lượng trả lời theo từng cấu hình chunk.
 
+\textbf{Kết luận từ thực nghiệm:} Việc điều chỉnh \texttt{chunk\_size} dẫn đến trade-off giữa precision và recall trong truy xuất thông tin. 
+Chunk nhỏ giúp embedding tập trung vào một ý cụ thể, từ đó tăng precision nhưng dễ làm mất ngữ cảnh quan trọng, gây giảm recall. 
+Ngược lại, chunk lớn giữ được nhiều ngữ cảnh hơn, cải thiện recall nhưng làm giảm precision do vector biểu diễn bị pha trộn nhiều chủ đề.
+Vì vậy, không tồn tại giá trị tối ưu chung; \texttt{chunk\_size} cần được điều chỉnh theo đặc thù dữ liệu và loại truy vấn để đạt hiệu quả cân bằng.
+
 \begin{figure}[h]
   \centering
-  \IfFileExists{docs/images/module4_chunk_placeholder.png}{\includegraphics[width=\linewidth]{docs/images/module4_chunk_placeholder.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 4: docs/images/module4_chunk_placeholder.png}}}
-  \caption{Minh họa Module 4 - Tùy chỉnh chiến lược phân đoạn (placeholder)}
+  \IfFileExists{imgs/cau4.png}{\includegraphics[width=\linewidth]{imgs/cau4.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 4: imgs/cau4.png}}}
+  \caption{Minh họa Module 4 - Tùy chỉnh chiến lược phân đoạn}
   \label{fig:module4_chunk}
 \end{figure}
 
@@ -431,7 +426,7 @@ Dựa trên lộ trình phát triển của dự án SmartDoc AI, hệ thống �
 
 \begin{figure}[h]
   \centering
-  \IfFileExists{docs/images/module5_citation_placeholder.png}{\includegraphics[width=\linewidth]{docs/images/module5_citation_placeholder.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 5: docs/images/module5_citation_placeholder.png}}}
+  \IfFileExists{imgs/cau5.png}{\includegraphics[width=\linewidth]{imgs/cau5.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 5: imgs/cau5.png}}}
   \caption{Minh họa Module 5 - Citation (placeholder)}
   \label{fig:module5_citation}
 \end{figure}
@@ -441,15 +436,16 @@ Dựa trên lộ trình phát triển của dự án SmartDoc AI, hệ thống �
 
 \textbf{Triển khai hiện tại:}
 \begin{itemize}
-  \item Lịch sử hội thoại gần nhất được format và chèn vào prompt trước khi gọi LLM.
-  \item Cơ chế này cho phép mô hình hiểu câu hỏi follow-up dựa trên ngữ cảnh trước đó.
+  \item \textbf{Conversational Query Rewrite (Tiền xử lý câu hỏi):} Trước khi truy xuất, hệ thống sử dụng LLM để phân tích câu hỏi hiện tại và lịch sử hội thoại, từ đó viết lại thành một câu hỏi độc lập (standalone query) rõ nghĩa và đầy đủ ngữ cảnh (ví dụ: chuyển "Ông ấy là ai?" thành "Nguyễn Hoàng Anh là ai?").
+  \item Truy vấn độc lập này được dùng để tìm kiếm vector, đảm bảo độ chính xác cao nhất kể cả khi người dùng dùng đại từ thay thế.
+  \item Lịch sử hội thoại tiếp tục được đưa vào prompt chính để LLM sinh câu trả lời mượt mà, đúng mạch trò chuyện.
 \end{itemize}
 
-\textbf{Giới hạn hiện tại:} Chưa có memory chain độc lập hoặc cơ chế tóm tắt lịch sử dài; phạm vi ngữ cảnh còn phụ thuộc số lượt chat gần nhất.
+\textbf{Kết quả:} Giải quyết triệt để vấn đề mất ngữ cảnh trong các câu hỏi nối tiếp. Giới hạn hiện tại là chưa có cơ chế tóm tắt lịch sử nếu đoạn chat quá dài.
 
 \begin{figure}[h]
   \centering
-  \IfFileExists{docs/images/module6_conversational_placeholder.png}{\includegraphics[width=\linewidth]{docs/images/module6_conversational_placeholder.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 6: docs/images/module6_conversational_placeholder.png}}}
+  \IfFileExists{imgs/cau6.png}{\includegraphics[width=\linewidth]{imgs/cau6.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 6: imgs/cau6.png}}}
   \caption{Minh họa Module 6 - Conversational RAG (placeholder)}
   \label{fig:module6_conversational}
 \end{figure}
@@ -469,8 +465,8 @@ Dựa trên lộ trình phát triển của dự án SmartDoc AI, hệ thống �
 
 \begin{figure}[h]
   \centering
-  \IfFileExists{docs/images/module7_hybrid_placeholder.png}{\includegraphics[width=\linewidth]{docs/images/module7_hybrid_placeholder.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 7: docs/images/module7_hybrid_placeholder.png}}}
-  \caption{Minh họa Module 7 - Hybrid Search (placeholder)}
+  \IfFileExists{imgs/cau7.png}{\includegraphics[width=\linewidth]{imgs/cau7.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 7: imgs/cau7.png}}}
+  \caption{Minh họa Module 7 - Hybrid Search}
   \label{fig:module7_hybrid}
 \end{figure}
 
@@ -488,7 +484,7 @@ Dựa trên lộ trình phát triển của dự án SmartDoc AI, hệ thống �
 
 \begin{figure}[h]
   \centering
-  \IfFileExists{docs/images/module8_multidoc_placeholder.png}{\includegraphics[width=\linewidth]{docs/images/module8_multidoc_placeholder.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 8: docs/images/module8_multidoc_placeholder.png}}}
+  \IfFileExists{imgs/cau8.png}{\includegraphics[width=\linewidth]{imgs/cau8.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 8: imgs/cau8.png}}}
   \caption{Minh họa Module 8 - Multi-document RAG (placeholder)}
   \label{fig:module8_multidoc}
 \end{figure}
@@ -507,7 +503,7 @@ Dựa trên lộ trình phát triển của dự án SmartDoc AI, hệ thống �
 
 \begin{figure}[h]
   \centering
-  \IfFileExists{docs/images/module9_rerank_placeholder.png}{\includegraphics[width=\linewidth]{docs/images/module9_rerank_placeholder.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 9: docs/images/module9_rerank_placeholder.png}}}
+  \IfFileExists{imgs/cau9.png}{\includegraphics[width=\linewidth]{imgs/cau9.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 9: imgs/cau9.png}}}
   \caption{Minh họa Module 9 - Re-ranking (placeholder)}
   \label{fig:module9_rerank}
 \end{figure}
@@ -526,16 +522,199 @@ Dựa trên lộ trình phát triển của dự án SmartDoc AI, hệ thống �
 
 \begin{figure}[h]
   \centering
-  \IfFileExists{docs/images/module10_selfrag_placeholder.png}{\includegraphics[width=\linewidth]{docs/images/module10_selfrag_placeholder.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 10: docs/images/module10_selfrag_placeholder.png}}}
+  \IfFileExists{imgs/cau10.png}{\includegraphics[width=\linewidth]{imgs/cau10.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 10: imgs/cau10.png}}}
   \caption{Minh họa Module 10 - Self-RAG (placeholder)}
   \label{fig:module10_selfrag}
 \end{figure}
+
+\subsection{Module 11 - So sánh RAG và GraphRAG (Mở rộng thêm)}
+\textbf{Mục tiêu:} Giải quyết các truy vấn phức tạp mang tính tổng hợp hoặc suy luận đa bước. Thay vì chỉ tìm các đoạn văn bản rời rạc, GraphRAG kết nối các thực thể và mối quan hệ để hiểu được bức tranh toàn cảnh của dữ liệu.
+
+\textbf{Triển khai hiện tại:}
+\begin{itemize}
+  \item Tự động xây dựng đồ thị (Graph Index) từ các chunk tài liệu: các node là các khối văn bản, các cạnh được tính toán dựa trên mức độ trùng lặp từ khóa (terms overlap) và khoảng cách vị trí trang.
+  \item Khi truy vấn, hệ thống dùng thuật toán MMR để tìm các node hạt giống (seed docs), sau đó duyệt đồ thị 2-hop (2-hop traversal) để mở rộng các ngữ cảnh liên quan.
+  \item \textbf{Chế độ so sánh (Compare Mode):} Cho phép chạy song song RAG tiêu chuẩn và GraphRAG, đo lường thời gian thực thi (Latency), số lượng nguồn truy xuất (Sources) và độ trùng lặp nguồn (Overlap).
+  \item Tích hợp tính năng \textbf{Benchmark \& Export Data}: Tự động lưu log hiệu năng và cho phép xuất dữ liệu thô (TSV, Markdown) để dễ dàng vẽ biểu đồ LaTeX (PGFPlots) hoặc Excel.
+\end{itemize}
+
+\textbf{Kết quả:} Cung cấp công cụ mạnh mẽ để đánh giá trực quan sự khác biệt giữa hai kiến trúc. GraphRAG cho thấy độ bao phủ thông tin tốt hơn với các câu hỏi phức tạp, giải quyết tốt các bài toán suy luận đa bước.
+
+\begin{figure}[h]
+  \centering
+  \IfFileExists{imgs/cau11.png}{\includegraphics[width=\linewidth]{imgs/cau11.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 11: imgs/cau11.png}}}
+  \caption{Minh họa Module 11 - So sánh RAG và GraphRAG (Mở rộng thêm)}
+  \label{fig:module11_rag_graphrag}
+\end{figure}
+
+\subsubsection*{Bảng đánh giá Chunking}
+
+\begin{table}[H]
+  \centering
+  \caption{Thông số chunking}
+  \renewcommand{\arraystretch}{1.4}
+  \begin{tabular}{
+      >{\centering\arraybackslash}m{2cm}
+      >{\centering\arraybackslash}m{1.5cm}
+      >{\centering\arraybackslash}m{2cm}
+      >{\centering\arraybackslash}m{1.5cm}
+  }
+    \toprule
+    \rowcolor{headercolor}
+    \textbf{Chunk Size} & \textbf{Overlap} & \textbf{Chunks Count} & \textbf{Time (s)} \\
+    \midrule
+    1000 & 150 & 9 & 8.573 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\vspace{0.5cm}
+
+\subsubsection*{Biểu đồ so sánh thời gian xử lý: RAG vs GraphRAG}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      ybar,
+      width=0.9\linewidth,
+      height=6cm,
+      bar width=0.8cm,
+      ymin=0,
+      ymax=280,
+      xtick=data,
+      symbolic x coords={Q1},
+      xlabel={Câu hỏi},
+      ylabel={Thời gian (s)},
+      ylabel style={font=\small},
+      xlabel style={font=\small},
+      nodes near coords,
+      nodes near coords align={vertical},
+      nodes near coords style={
+        font=\small\bfseries,
+        /pgf/number format/.cd, fixed, precision=2
+      },
+      enlarge x limits=0.6,
+      ymajorgrids=true,
+      grid style={dashed, gray!30},
+      axis line style={gray!50},
+      tick style={gray!50},
+      legend style={
+        at={(0.5,-0.25)},
+        anchor=north,
+        legend columns=2,
+        draw=gray!40,
+        font=\small,
+        /tikz/every even column/.append style={column sep=0.5cm}
+      },
+      legend cell align=left,
+    ]
+      \addplot[fill=ragblue, draw=ragblue!80!black, bar shift=-0.4cm]
+        coordinates {(Q1, 145.2)};
+      \addplot[fill=graphred, draw=graphred!80!black, bar shift=0.4cm]
+        coordinates {(Q1, 237.46)};
+      \legend{RAG, GraphRAG}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{So sánh thời gian xử lý (giây) giữa RAG và GraphRAG}
+\end{figure}
+
+\vspace{0.5cm}
+
+\subsubsection*{Bảng so sánh RAG vs GraphRAG}
+
+\begin{table}[H]
+  \centering
+  \caption{Chi tiết kết quả so sánh}
+  \renewcommand{\arraystretch}{1.4}
+  \resizebox{\linewidth}{!}{%
+  \begin{tabular}{
+      >{\raggedright\arraybackslash}m{3.5cm}
+      >{\centering\arraybackslash}m{1.5cm}
+      >{\centering\arraybackslash}m{1.8cm}
+      >{\centering\arraybackslash}m{1.5cm}
+      >{\centering\arraybackslash}m{1.8cm}
+      >{\centering\arraybackslash}m{1.2cm}
+  }
+    \toprule
+    \rowcolor{headercolor}
+    \textbf{Query} &
+    \textbf{RAG Time (s)} &
+    \textbf{GraphRAG Time (s)} &
+    \textbf{RAG Sources} &
+    \textbf{GraphRAG Sources} &
+    \textbf{Overlap} \\
+    \midrule
+    project của Nguyễn Hoàng Anh &
+    \textcolor{ragblue}{\textbf{145.2}} &
+    \textcolor{graphred}{\textbf{237.46}} &
+    3 & 4 & 1 \\
+    \bottomrule
+  \end{tabular}%
+  }
+\end{table}
+
+\vspace{0.5cm}
+
+\subsubsection*{Phân tích chênh lệch}
+
+\noindent
+\textbf{RAG} xử lý nhanh hơn \textbf{GraphRAG} khoảng \textbf{63.5\%} đối với câu hỏi Q1.
+GraphRAG mất thêm \textbf{92.26 giây} so với RAG ($237.46 - 145.2 = 92.26$ giây).
+
+\vspace{0.4cm}
+\noindent
+\begin{tikzpicture}
+  \fill[ragblue!20] (0,0) rectangle (8.5,0.5);
+  \fill[ragblue] (0,0) rectangle (5.18,0.5);  % 61% of 8.5
+  \node[right] at (5.2, 0.25) {\small \textbf{RAG nhanh hơn +63.5\%}};
+\end{tikzpicture}
 
 % ============================================================
 \section{Kết Quả Và Đánh Giá}
 
 \subsection{Kết quả đạt được}
 \subsection{Testing \& Test Cases}
+
+\textbf{Test Case 1: Simple Factual Question}
+\begin{itemize}
+    \item \textbf{Document:} Tài liệu kỹ thuật
+    \item \textbf{Question:} ``Các bước cài đặt là gì?''
+    \item \textbf{Expected:} Hướng dẫn chi tiết bước cài đặt.
+    \item \textbf{Result:} $\checkmark$ Passed
+\end{itemize}
+\begin{center}
+    \includegraphics[width=0.8\linewidth]{imgs/testcase1.png}
+    \captionof{figure}{Kết quả Test Case 1}
+    \label{fig:testcase1}
+\end{center}
+
+\textbf{Test Case 2: Suy luận phức tạp}
+\begin{itemize}
+    \item \textbf{Document:} Bài nghiên cứu khoa học
+    \item \textbf{Question:} ``Mục tiêu của bài nghiên cứu là gì?''
+    \item \textbf{Expected:} Tóm tắt và phân tích
+    \item \textbf{Result:} $\checkmark$ Passed
+\end{itemize}
+\begin{center}
+    \includegraphics[width=0.8\linewidth]{imgs/testcase2.png}
+    \captionof{figure}{Kết quả Test Case 2}
+    \label{fig:testcase2}
+\end{center}
+
+\textbf{Test Case 3: Hỏi sai ngữ cảnh}
+\begin{itemize}
+    \item \textbf{Document:} Công thức nấu ăn
+    \item \textbf{Question:} ``Hướng dẫn giải phương trình vi phân?''
+    \item \textbf{Expected:} Phản hồi ``Không tìm thấy thông tin''
+    \item \textbf{Result:} $\checkmark$ Passed
+\end{itemize}
+\begin{center}
+    \includegraphics[width=0.8\linewidth]{imgs/testcase3.png}
+    \captionof{figure}{Kết quả Test Case 3}
+    \label{fig:testcase3}
+\end{center}
+
 \subsection{Ưu điểm và Hạn chế}
 \subsection{So sánh với các giải pháp khác}
 

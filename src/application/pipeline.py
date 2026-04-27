@@ -115,34 +115,52 @@ def process_pdf_to_vectorstore(
     return vector_db
 
 
-def process_multiple_pdfs_to_vectorstore(
-    pdf_paths: list[str],
+def process_multiple_files_to_vectorstore(
+    file_paths: list[str],
     vector_store_path: str,
     chunk_size: int = 1000,
     chunk_overlap: int = 150,
 ):
-    """Multi-file: Load N PDFs -> Chunk -> Metadata per file -> One FAISS index.
-
-    Returns:
-        (vector_db, stats_dict)
-    """
+    """Multi-file: Load N PDFs/DOCXs -> Chunk -> Metadata per file -> One FAISS index."""
     total_start = time.perf_counter()
     all_chunks = []
     total_docs = 0
     errors = []
 
-    for pdf_path in pdf_paths:
+    for file_path in file_paths:
         try:
-            documents = _load_pdf(pdf_path)
-            if not documents:
-                errors.append(f"{Path(pdf_path).name}: không trích xuất được văn bản")
-                continue
-            total_docs += len(documents)
-            chunks = _chunk_documents(documents, chunk_size, chunk_overlap)
-            chunks = _assign_metadata(chunks, pdf_path)
-            all_chunks.extend(chunks)
+            path_obj = Path(file_path)
+            ext = path_obj.suffix.lower()
+            if ext == ".pdf":
+                documents = _load_pdf(file_path)
+                if not documents:
+                    errors.append(f"{path_obj.name}: không trích xuất được văn bản PDF")
+                    continue
+                total_docs += len(documents)
+                chunks = _chunk_documents(documents, chunk_size, chunk_overlap)
+                chunks = _assign_metadata(chunks, file_path)
+                all_chunks.extend(chunks)
+            elif ext == ".docx":
+                from src.application.pipeline_doc import _read_docx, _is_valid_chunk
+                from langchain_text_splitters import RecursiveCharacterTextSplitter
+                documents = _read_docx(file_path, path_obj.name)
+                if not documents:
+                    errors.append(f"{path_obj.name}: không trích xuất được văn bản DOCX")
+                    continue
+                total_docs += len(documents)
+                splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=chunk_size,
+                    chunk_overlap=chunk_overlap,
+                    separators=["\n\n", "\n", ". ", " ", ""],
+                )
+                chunks = splitter.split_documents(documents)
+                chunks = [c for c in chunks if _is_valid_chunk(c.page_content)]
+                chunks = _assign_metadata(chunks, file_path)
+                all_chunks.extend(chunks)
+            else:
+                errors.append(f"{path_obj.name}: định dạng không hỗ trợ ({ext})")
         except Exception as exc:
-            errors.append(f"{Path(pdf_path).name}: {exc}")
+            errors.append(f"{Path(file_path).name}: {exc}")
 
     if not all_chunks:
         raise ValueError(
@@ -156,7 +174,7 @@ def process_multiple_pdfs_to_vectorstore(
 
     total_time = time.perf_counter() - total_start
     stats = {
-        "file_count": len(pdf_paths),
+        "file_count": len(file_paths),
         "doc_count": total_docs,
         "chunk_count": len(all_chunks),
         "chunk_size": chunk_size,
@@ -165,3 +183,4 @@ def process_multiple_pdfs_to_vectorstore(
         "errors": errors,
     }
     return vector_db, stats
+

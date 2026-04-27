@@ -10,7 +10,8 @@ from data.history import (
 from src.application.chain_citation import get_answer_with_citation
 from src.application.chain_hybrid import get_answer_with_hybrid_citation
 from src.application.chain_multidoc import get_answer_multidoc
-from src.application.pipeline import process_pdf_to_vectorstore, process_multiple_pdfs_to_vectorstore
+from src.application.pipeline import process_multiple_files_to_vectorstore
+from src.application.rag_coordinator import execute as run_pipeline
 from src.presentation.comp_citation import render_answer as render_citation, render_comparison
 from src.presentation.comp_multidoc import render_doc_filter
 from src.presentation.components import (
@@ -151,7 +152,7 @@ if files:
         sig += f":{sb['cs']}:{sb['co']}"
         if sig != st.session_state.uploaded_signature:
             try:
-                pdf_dir = Path("data/pdfs"); pdf_dir.mkdir(parents=True, exist_ok=True)
+                pdf_dir = Path("data/documents"); pdf_dir.mkdir(parents=True, exist_ok=True)
                 idx_dir = Path("data/faiss_index") / hashlib.md5(sig.encode()).hexdigest()
                 idx_dir.parent.mkdir(parents=True, exist_ok=True)
                 paths = []
@@ -159,10 +160,7 @@ if files:
                     p = pdf_dir / Path(f.name).name; p.write_bytes(f.getvalue()); paths.append(str(p))
                 st.session_state.processing_step = 2
                 with st.spinner(f"Đang xử lý {len(paths)} tài liệu..."):
-                    if len(paths) == 1:
-                        vdb, stats = process_pdf_to_vectorstore(paths[0], str(idx_dir), sb["cs"], sb["co"], return_stats=True)
-                    else:
-                        vdb, stats = process_multiple_pdfs_to_vectorstore(paths, str(idx_dir), sb["cs"], sb["co"])
+                    vdb, stats = process_multiple_files_to_vectorstore(paths, str(idx_dir), sb["cs"], sb["co"])
                 st.session_state.vector_db = vdb
                 st.session_state.processing_step = 3
                 st.session_state.uploaded_signature = sig
@@ -194,161 +192,6 @@ if st.session_state.active_conversation_id:
 # ── Input ────────────────────────────────────────────────────────────
 question, send_clicked, compare_clicked = render_qa_input()
 
-# ── RAG pipeline ─────────────────────────────────────────────────────
-def run_pipeline(query, vdb, ctx, search_mode, use_rerank, use_selfrag, meta_filter=None):
-    """Composable pipeline: search → (rerank) → (self-rag) → LLM."""
-    debug = {"pipeline": "", "timing": {}, "pre_rerank_docs": [], "post_rerank_docs": []}
-    pipe_parts = []
-
-    t_total = time.perf_counter()
-
-    # Step 1: Retrieval
-    if meta_filter:
-        t0 = time.perf_counter()
-        response, raw_sources = get_answer_multidoc(query, vdb, metadata_filter=meta_filter)
-        debug["timing"]["multidoc"] = time.perf_counter() - t0
-        pipe_parts.append("multidoc")
-        debug["pipeline"] = " → ".join(pipe_parts)
-        debug["timing"]["total"] = time.perf_counter() - t_total
-        return response, raw_sources, debug
-
-    if search_mode == "hybrid":
-        t0 = time.perf_counter()
-        if not use_rerank and not use_selfrag:
-            response, raw_sources = get_answer_with_hybrid_citation(query, vdb, chat_history=ctx)
-            debug["timing"]["hybrid_search+llm"] = time.perf_counter() - t0
-            pipe_parts.append("hybrid")
-            debug["pipeline"] = " → ".join(pipe_parts)
-            debug["timing"]["total"] = time.perf_counter() - t_total
-            return response, raw_sources, debug
-        else:
-            # Need raw docs for rerank/selfrag — use hybrid retriever only
-            from src.data_layer.vector_store import create_hybrid_retriever_from_vector_store
-            retriever = create_hybrid_retriever_from_vector_store(vdb, k=12 if use_rerank else 5)
-            docs = retriever.invoke(query)
-            debug["timing"]["hybrid_retrieve"] = time.perf_counter() - t0
-            pipe_parts.append("hybrid")
-    else:
-        t0 = time.perf_counter()
-        if not use_rerank and not use_selfrag:
-            response, raw_sources = get_answer_with_citation(query, vdb, chat_history=ctx)
-            debug["timing"]["semantic_search+llm"] = time.perf_counter() - t0
-            pipe_parts.append("semantic")
-            debug["pipeline"] = " → ".join(pipe_parts)
-            debug["timing"]["total"] = time.perf_counter() - t_total
-            return response, raw_sources, debug
-        else:
-            retriever = vdb.as_retriever(search_type="similarity",
-                                          search_kwargs={"k": 12 if use_rerank else 5, "fetch_k": 20})
-            docs = retriever.invoke(query)
-            debug["timing"]["semantic_retrieve"] = time.perf_counter() - t0
-            pipe_parts.append("semantic")
-
-    # Pre-rerank debug
-    for i, doc in enumerate(docs, 1):
-        d = _doc_snippet(doc)
-        d["id"] = i; d["score"] = None
-        debug["pre_rerank_docs"].append(d)
-
-    # Step 2: Reranking (optional)
-    if use_rerank:
-        t0 = time.perf_counter()
-        from sentence_transformers import CrossEncoder
-
-        @lru_cache(maxsize=1)
-        def _reranker():
-            return CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-
-        reranker = _reranker()
-        pairs = [(query, doc.page_content) for doc in docs]
-        scores = reranker.predict(pairs)
-        ranked = sorted(zip(docs, scores), key=lambda x: float(x[1]), reverse=True)
-
-        # Update pre-rerank with scores
-        for i, (doc, score) in enumerate(zip(docs, scores)):
-            if i < len(debug["pre_rerank_docs"]):
-                debug["pre_rerank_docs"][i]["score"] = float(score)
-
-        docs = [doc for doc, _ in ranked[:5]]
-        for i, (doc, score) in enumerate(ranked[:5], 1):
-            d = _doc_snippet(doc)
-            d["id"] = i; d["score"] = float(score)
-            debug["post_rerank_docs"].append(d)
-
-        debug["timing"]["rerank"] = time.perf_counter() - t0
-        pipe_parts.append("rerank")
-
-    # Step 3: Self-RAG (optional)
-    if use_selfrag:
-        t0 = time.perf_counter()
-        from src.application.chain_selfrag import (
-            _build_context_and_sources, _answer_with_context,
-            _extract_json_payload,
-        )
-        from src.application.promts import get_self_rag_eval_prompt, get_self_rag_rewrite_prompt
-        from langchain_community.llms import Ollama
-
-        llm = Ollama(model="qwen2.5:7b", temperature=0.3, top_p=0.9, repeat_penalty=1.1)
-        context_str, sources = _build_context_and_sources(docs)
-        answer = _answer_with_context(llm, query, context_str, ctx)
-
-        eval_raw = llm.invoke(get_self_rag_eval_prompt().format(
-            question=query, context=context_str, answer=answer))
-        payload = _extract_json_payload(eval_raw)
-        confidence = max(0.0, min(1.0, float(payload.get("confidence", 0.5))))
-        needs_rewrite = bool(payload.get("needs_rewrite", False))
-        rewritten = str(payload.get("rewritten_query", "")).strip()
-
-        debug["confidence"] = confidence
-        debug["hops_used"] = 1
-
-        if needs_rewrite or confidence < 0.62:
-            debug["hops_used"] = 2
-            if not rewritten:
-                from src.application.chain_selfrag import _format_chat_history
-                rewritten = str(llm.invoke(get_self_rag_rewrite_prompt().format(
-                    question=query, chat_history=_format_chat_history(ctx)))).strip()
-            debug["rewritten_query"] = rewritten
-            if rewritten:
-                if search_mode == "hybrid":
-                    from src.data_layer.vector_store import create_hybrid_retriever_from_vector_store
-                    docs2 = create_hybrid_retriever_from_vector_store(vdb, k=5).invoke(rewritten)
-                else:
-                    docs2 = vdb.as_retriever(search_kwargs={"k": 5}).invoke(rewritten)
-                if docs2:
-                    ctx2, src2 = _build_context_and_sources(docs2)
-                    ans2 = _answer_with_context(llm, rewritten, ctx2, ctx)
-                    answer = llm.invoke(
-                        f"Tổng hợp:\nCÂU HỎI: {query}\n"
-                        f"HOP 1: {answer}\nHOP 2 (rewrite: {rewritten}): {ans2}\n"
-                        f"Trả lời dựa trên cả 2 hop, trích dẫn [Nguồn X].")
-                    sources = sources + src2
-                    for i, s in enumerate(sources, 1):
-                        s["id"] = i
-                    confidence = 0.7
-
-        answer_text = (f"{answer}\n\n(Self-RAG: {debug['hops_used']} hop · "
-                       f"confidence: {confidence:.0%})")
-        if debug.get("rewritten_query"):
-            answer_text += f"\nQuery rewrite: {debug['rewritten_query']}"
-        debug["timing"]["selfrag"] = time.perf_counter() - t0
-        pipe_parts.append("self-rag")
-        debug["pipeline"] = " → ".join(pipe_parts)
-        debug["timing"]["total"] = time.perf_counter() - t_total
-        return answer_text, sources, debug
-
-    # No self-rag — need LLM call with retrieved docs
-    t0 = time.perf_counter()
-    from src.application.chain_selfrag import _build_context_and_sources, _answer_with_context
-    from langchain_community.llms import Ollama
-    llm = Ollama(model="qwen2.5:7b", temperature=0.7, top_p=0.9, repeat_penalty=1.1)
-    context_str, sources = _build_context_and_sources(docs)
-    response = _answer_with_context(llm, query, context_str, ctx)
-    debug["timing"]["llm"] = time.perf_counter() - t0
-    pipe_parts.append("llm")
-    debug["pipeline"] = " → ".join(pipe_parts)
-    debug["timing"]["total"] = time.perf_counter() - t_total
-    return response, sources, debug
 
 
 # ── Execute query ────────────────────────────────────────────────────
@@ -389,6 +232,15 @@ if send_clicked or compare_clicked:
                         "graphrag": {"text": gr, "source": build_source_text(gsn), "sources": gsn, "query": question, "time": round(gt, 2)},
                         "overlap": olap,
                     }
+                    st.session_state.benchmark_log.append({
+                        "benchmark_type": "compare",
+                        "query": question[:30] + "..." if len(question) > 30 else question,
+                        "rag_time": round(vt, 2),
+                        "graphrag_time": round(gt, 2),
+                        "rag_sources": len(vsn),
+                        "graphrag_sources": len(gsn),
+                        "overlap": olap,
+                    })
                     response, raw_sources, debug = vr, vs, vdbg
                 else:
                     response, raw_sources, debug = run_pipeline(
@@ -439,9 +291,44 @@ if st.session_state.answer:
 render_debug_panel(st.session_state.debug_info)
 
 # ── Benchmark ────────────────────────────────────────────────────────
-with st.expander("Benchmark", expanded=False):
+def get_text_export(logs):
+    chunk_logs = [l for l in logs if l.get("benchmark_type") == "chunk"]
+    compare_logs = [l for l in logs if l.get("benchmark_type") == "compare"]
+    out = []
+    
+    if chunk_logs:
+        out.append("=== BẢNG ĐÁNH GIÁ CHUNKING ===")
+        out.append("| Chunk Size | Overlap | Chunks Count | Time (s) |")
+        out.append("|---|---|---|---|")
+        for log in chunk_logs:
+            out.append(f"| {log.get('chunk_size')} | {log.get('chunk_overlap')} | {log.get('chunks')} | {log.get('time')} |")
+        out.append("")
+        
+    if compare_logs:
+        out.append("=== BẢNG SO SÁNH RAG VS GRAPHRAG ===")
+        out.append("| Query | RAG Time (s) | GraphRAG Time (s) | RAG Sources | GraphRAG Sources | Overlap |")
+        out.append("|---|---|---|---|---|---|")
+        for log in compare_logs:
+            q = str(log.get('query', '')).replace('\n', ' ')
+            out.append(f"| {q} | {log.get('rag_time')} | {log.get('graphrag_time')} | {log.get('rag_sources')} | {log.get('graphrag_sources')} | {log.get('overlap')} |")
+        out.append("")
+        
+        out.append("=== DỮ LIỆU VẼ BIỂU ĐỒ (PGFPLOTS / EXCEL) ===")
+        out.append("X (Câu hỏi)\\tRAG Time\\tGraphRAG Time")
+        for i, log in enumerate(compare_logs):
+            out.append(f"Q{i+1}\\t{log.get('rag_time')}\\t{log.get('graphrag_time')}")
+        out.append("")
+        
+    return "\n".join(out)
+
+with st.expander("Benchmark & Export Data", expanded=False):
     logs = st.session_state.get("benchmark_log", [])
     if not logs:
         st.caption("Chưa có dữ liệu.")
     else:
         st.dataframe(logs[-10:], use_container_width=True)
+        st.markdown("### Dữ liệu thô (Raw Text)")
+        st.caption("Bạn có thể copy đoạn text dưới đây để vẽ biểu đồ LaTeX/Excel sau.")
+        text_str = get_text_export(logs)
+        if text_str:
+            st.code(text_str, language="markdown")

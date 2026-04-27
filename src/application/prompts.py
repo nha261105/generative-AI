@@ -5,11 +5,11 @@ RAG_PROMPT_TEMPLATE = """
 Bạn là SmartDoc AI - Một trợ lý phân tích tài liệu chuyên nghiệp. 
 Hãy trả lời câu hỏi dựa TRỰC TIẾP trên các đoạn trích dẫn (Context) dưới đây. 
 
-YÊU CẦU:
+YÊU CẦU BẮT BUỘC:
 1. Mỗi ý trong câu trả lời PHẢI có citation dạng: [Nguồn X]
 2. X tương ứng với số nguồn trong Context (ví dụ: Nguồn 1, Nguồn 2,...)
 3. Nếu thông tin không có trong tài liệu, hãy nói "Tôi không tìm thấy thông tin này trong tài liệu". 
-4. Trả lời ngắn gọn, rõ ràng, bằng tiếng Việt
+4. LUÔN LUÔN trả lời ngắn gọn, rõ ràng, bằng TIẾNG VIỆT (Vietnamese) bất kể câu hỏi bằng ngôn ngữ gì.
 
 ---
 TÀI LIỆU TRÍCH XUẤT:
@@ -18,7 +18,7 @@ TÀI LIỆU TRÍCH XUẤT:
 
 CÂU HỎI CỦA NGƯỜI DÙNG: {question}
 
-TRẢ LỜI:
+TRẢ LỜI BẰNG TIẾNG VIỆT:
 """
 
 def get_rag_prompt():
@@ -30,11 +30,11 @@ Bạn là SmartDoc AI - Một trợ lý phân tích tài liệu chuyên nghiệp
 Hãy sử dụng lịch sử hội thoại để hiểu ngữ cảnh câu hỏi nối tiếp,
 nhưng chỉ kết luận dựa trên các đoạn trích dẫn trong Context.
 
-YÊU CẦU:
+YÊU CẦU BẮT BUỘC:
 1. Mỗi ý trong câu trả lời PHẢI có citation dạng: [Nguồn X]
 2. X tương ứng với số nguồn trong Context (ví dụ: Nguồn 1, Nguồn 2,...)
 3. Nếu thông tin không có trong tài liệu, hãy nói "Tôi không tìm thấy thông tin này trong tài liệu"
-4. Trả lời ngắn gọn, rõ ràng, bằng tiếng Việt
+4. LUÔN LUÔN trả lời ngắn gọn, rõ ràng, bằng TIẾNG VIỆT (Vietnamese) bất kể câu hỏi bằng ngôn ngữ gì.
 
 ---
 LỊCH SỬ HỘI THOẠI GẦN NHẤT:
@@ -47,7 +47,7 @@ TÀI LIỆU TRÍCH XUẤT:
 
 CÂU HỎI CỦA NGƯỜI DÙNG: {question}
 
-TRẢ LỜI:
+TRẢ LỜI BẰNG TIẾNG VIỆT:
 """
 
 
@@ -91,18 +91,20 @@ def get_self_rag_eval_prompt():
 
 SELF_RAG_REWRITE_PROMPT_TEMPLATE = """
 Bạn là trợ lý viết lại truy vấn cho hệ thống RAG.
-Hãy viết lại câu hỏi để tăng khả năng truy xuất tài liệu chính xác hơn.
+Nhiệm vụ của bạn là đọc LỊCH SỬ HỘI THOẠI và viết lại QUESTION GỐC thành một câu hỏi duy nhất, đầy đủ ngữ cảnh và rõ nghĩa, để hệ thống có thể tìm kiếm tài liệu chính xác nhất.
 
-YÊU CẦU:
-- Trả về duy nhất một câu hỏi viết lại bằng tiếng Việt.
-- Ngắn gọn, rõ nghĩa, giữ đúng ý định ban đầu.
-- Ưu tiên thêm từ khóa miền nội dung nếu có trong context hội thoại.
+YÊU CẦU BẮT BUỘC:
+1. Trả về DUY NHẤT một CÂU HỎI HOÀN CHỈNH bằng tiếng Việt (Ví dụ: "Nguyễn Hoàng Anh là ai?" thay vì chỉ trả về "Nguyễn Hoàng Anh").
+2. Tuyệt đối KHÔNG trả lời câu hỏi, CHỈ thực hiện việc viết lại câu hỏi.
+3. Câu hỏi mới phải chứa các từ khóa quan trọng từ Lịch sử hội thoại (nếu QUESTION GỐC dùng các từ thay thế như "nó", "anh ấy", "cái đó").
+
+LỊCH SỬ HỘI THOẠI:
+{chat_history}
 
 QUESTION GỐC:
 {question}
 
-LỊCH SỬ HỘI THOẠI:
-{chat_history}
+CÂU HỎI ĐÃ ĐƯỢC VIẾT LẠI:
 """
 
 
