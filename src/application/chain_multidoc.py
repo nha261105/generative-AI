@@ -1,7 +1,7 @@
 import streamlit as st
 from langchain_community.llms import Ollama
 from langchain_core.documents import Document
-from src.application.promts import get_rag_prompt
+from src.application.prompts import get_rag_prompt
 
 
 @st.cache_resource

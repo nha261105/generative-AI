@@ -50,7 +50,7 @@ def render_sidebar(
         # ── Upload ──
         st.markdown('<div class="sidebar-section-label">Tài liệu</div>', unsafe_allow_html=True)
         out["files"] = st.file_uploader(
-            "Upload PDF", type=["pdf"], accept_multiple_files=True,
+            "Upload PDF/DOCX", type=["pdf", "docx"], accept_multiple_files=True,
             label_visibility="collapsed", key="pdf_uploader",
         )
         if out["files"]:

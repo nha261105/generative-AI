@@ -1,0 +1,752 @@
+\documentclass[conference]{IEEEtran}
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage[vietnamese,english]{babel}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{setspace}
+\usepackage{ifthen}
+\usepackage{caption}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{colortbl}
+\usepackage{float}
+
+\pgfplotsset{compat=1.18}
+
+% ---- Custom colors ----
+\definecolor{ragblue}{HTML}{378ADD}
+\definecolor{graphred}{HTML}{D85A30}
+\definecolor{headercolor}{HTML}{F1EFE8}
+\definecolor{bordercolor}{HTML}{B4B2A9}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!10}
+}
+
+\begin{document}
+\setstretch{1.5}
+\title{SmartDoc AI - Intelligent Document \texorpdfstring{Q\&A}{Q&A} System}
+
+\author{
+  \IEEEauthorblockN{Hồ Hoàng Long\textsuperscript{1}, Nguyễn Hoàng Anh\textsuperscript{1}, Đỗ Nhật Huy\textsuperscript{1}, Bùi Nguyễn Trọng Nghĩa\textsuperscript{1}, Lưu Phùng Khải Nguyên\textsuperscript{1}}
+  \IEEEauthorblockA{\textsuperscript{1}Khoa Công nghệ Thông tin, Trường Đại học Sài Gòn\\
+  Email: hohoanglong2508@gmail.com, nha261105@gmail.com,nhathuy1611@gmail.com,\\
+  nghiatrong060505@gmail.com, luuphungkhainguyen2732005@gmail.com}
+}
+
+\maketitle
+
+\begin{abstract}
+Hiện tại nhu cầu sử dụng AI ngày càng lớn. Đôi khi AI trả lời kết quả không mong muốn. Thông qua bài tập lớn lần này chúng em đã xây dựng hệ thống SmartDoc AI sử dụng kỹ thuật RAG (Retrieval-Augmented Generation) để AI trả lời dựa trên những tài liệu đưa vào. Nhóm đã tìm hiểu và triển khai các thành phần như Vector Store, Text Chunking, và tích hợp các mô hình ngôn ngữ lớn (LLMs) như Qwen2.5 thông qua Ollama.
+\end{abstract}
+
+\begin{IEEEkeywords}
+RAG; LLM; Vector Database; FAISS; LangChain; Qwen2.5; Ollama; Python.
+\end{IEEEkeywords}
+
+% ============================================================
+\section{Giới Thiệu}
+
+\subsection{Bối cảnh}
+
+Trong kỷ nguyên số hiện nay, sự bùng nổ của thông tin lưu trữ dưới dạng các tài liệu điện tử đã tạo ra thách thức lớn trong việc tìm kiếm và trích xuất dữ liệu một cách hiệu quả. Các phương pháp tìm kiếm truyền thống, vốn chủ yếu dựa vào từ khóa, thường bộc lộ hạn chế khi không thể hiểu rõ ngữ cảnh hoặc ý nghĩa sâu xa của câu hỏi người dùng.
+
+Sự ra đời của kỹ thuật RAG (Retrieval-Augmented Generation) đã mở ra một hướng đi mới, kết hợp sự chính xác của các hệ thống truy xuất thông tin với khả năng sinh ngôn ngữ tự nhiên linh hoạt của các mô hình ngôn ngữ lớn (LLMs). Hệ thống này cho phép LLM tham chiếu trực tiếp vào nội dung tài liệu thực tế, từ đó giảm thiểu hiện tượng ``ảo giác'' và nâng cao độ chính xác của câu trả lời.
+
+Dự án SmartDoc AI được nhóm thực hiện nhằm mục đích xây dựng một giải pháp hỏi đáp thông minh với các động lực cốt lõi sau:
+\begin{itemize}
+  \item \textbf{Làm chủ công nghệ mã nguồn mở:} Sử dụng hệ sinh thái mã nguồn mở mạnh mẽ bao gồm LangChain, FAISS và mô hình Qwen2.5 thông qua Ollama.
+  \item \textbf{Bảo mật và riêng tư:} Hệ thống được thiết kế để vận hành hoàn toàn cục bộ (local) trên máy tính cá nhân, đảm bảo dữ liệu nhạy cảm không bị rò rỉ ra bên ngoài.
+  \item \textbf{Tối ưu hóa đa ngôn ngữ:} Tập trung vào khả năng xử lý xuất sắc tiếng Việt và hơn 50 ngôn ngữ khác thông qua các mô hình embedding tiên tiến.
+  \item \textbf{Hiệu quả chi phí:} Loại bỏ sự phụ thuộc vào các API trả phí, giúp người dùng tiếp cận công nghệ AI với chi phí bằng không.
+\end{itemize}
+
+\subsection{Phạm vi dự án}
+
+Phạm vi dự án SmartDoc AI tập trung vào việc xây dựng một hệ thống hỏi đáp thông minh với các giới hạn và mục tiêu cụ thể như sau:
+\begin{itemize}
+  \item \textbf{Tài liệu đầu vào:} Hệ thống hỗ trợ xử lý đa dạng các định dạng tài liệu, tiêu biểu là PDF và DOCX.
+  \item \textbf{Mô hình ngôn ngữ:} Sử dụng Qwen2.5 thông qua Ollama, với khả năng xử lý đa ngôn ngữ và tối ưu hóa dành cho Tiếng Việt.
+  \item \textbf{Môi trường triển khai:} Ứng dụng được thiết kế và vận hành hoàn toàn trên môi trường WSL (Windows Subsystem for Linux) kết hợp với môi trường ảo venv. Việc sử dụng WSL cho phép hệ thống tận dụng tối ưu hiệu suất của các thư viện xử lý vector và mô hình ngôn ngữ lớn trên nhân Linux, trong khi môi trường ảo giúp cô lập các phụ thuộc (dependencies), đảm bảo tính ổn định và nhất quán trong suốt quá trình thực nghiệm.
+  \item \textbf{Công nghệ mô hình:} Sử dụng các mô hình ngôn ngữ lớn và thư viện hoàn toàn mã nguồn mở, miễn phí như Qwen2.5:7b, LangChain, và FAISS.
+  \item \textbf{Chức năng cốt lõi:} Tập trung vào quy trình RAG hoàn chỉnh bao gồm: tải tài liệu, chia nhỏ văn bản (chunking), tạo vector embedding, lưu trữ index và sinh câu trả lời dựa trên ngữ cảnh truy xuất được.
+\end{itemize}
+
+% ============================================================
+\section{Cơ Sở Lý Thuyết}
+
+\subsection{RAG (Retrieval-Augmented Generation)}
+
+\subsubsection{Khái niệm}
+RAG (Retrieval-Augmented Generation) là một kỹ thuật tiên tiến trong lĩnh vực Xử lý ngôn ngữ tự nhiên (NLP), kết hợp sức mạnh của việc truy xuất thông tin với khả năng sinh ngôn ngữ của các mô hình ngôn ngữ lớn (LLMs). Thay vì chỉ dựa hoàn toàn vào tập dữ liệu huấn luyện tĩnh, hệ thống RAG cho phép mô hình tiếp cận và sử dụng thông tin từ các nguồn dữ liệu bên ngoài theo thời gian thực để đưa ra câu trả lời.
+
+Về cơ bản, một hệ thống RAG hoạt động dựa trên sự phối hợp của hai thành phần chính:
+\begin{itemize}
+  \item \textbf{Retrieval (Truy xuất):} Thực hiện nhiệm vụ tìm kiếm và trích xuất các đoạn văn bản hoặc thông tin có liên quan nhất từ cơ sở dữ liệu (thường là các tệp PDF đã được vector hóa) dựa trên nội dung câu hỏi của người dùng.
+  \item \textbf{Generation (Sinh):} Sử dụng mô hình ngôn ngữ lớn (như Qwen2.5) để tổng hợp thông tin đã truy xuất được và sinh ra câu trả lời tự nhiên, chính xác và có ngữ cảnh rõ ràng.
+\end{itemize}
+
+Kỹ thuật này giúp giải quyết hiệu quả các hạn chế cố hữu của LLM như hiện tượng ``ảo giác'' (hallucination) hoặc việc thiếu hụt kiến thức về các dữ liệu chuyên biệt, mới cập nhật hoặc mang tính nội bộ.
+
+\subsubsection{Kiến trúc RAG}
+Kiến trúc RAG tiêu biểu bao gồm hai quá trình chính: quá trình lập chỉ mục (indexing) và quá trình truy xuất - sinh phản hồi (retrieval and generation).
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=\linewidth]{imgs/rag_architecture.png}
+  \caption{Sơ đồ kiến trúc hệ thống RAG}
+  \label{fig:rag}
+\end{figure}
+
+Như được mô tả trong Hình~\ref{fig:rag}, luồng dữ liệu bắt đầu từ việc upload tài liệu từ phía người dùng, sau đó tài liệu sẽ được chunks ra các đoạn nhỏ để dễ dàng xử lý. Từ những chunks đó embedding sẽ xử lý và tạo thành các vector biểu diễn trên tọa độ $n$ chiều và lưu vào trong vector database. Khi người dùng đặt câu hỏi, hệ thống sẽ chuyển hóa câu hỏi thành vector sau đó sử dụng tích vô hướng với các vector trong database để tìm ra những chunks có liên quan nhau. Sau đó, những chunks này sẽ được đưa vào mô hình ngôn ngữ lớn (LLM) để sinh ra câu trả lời dựa trên ngữ cảnh đã truy xuất được.
+
+\subsection{Embedding và Vector Database}
+
+\subsubsection{Text Embedding}
+Text embedding là quá trình chuyển đổi các dữ liệu văn bản thành các vector số có số chiều cố định trong không gian đa chiều. Công thức tổng quát cho quá trình này được biểu diễn như sau:
+\begin{equation}
+  E : \textit{Text} \rightarrow \mathbb{R}^{d}
+\end{equation}
+Trong đó $d$ là số chiều của vector.
+
+Dự án sử dụng mô hình \textbf{paraphrase-multilingual-mpnet-base-v2} từ Hugging Face để thực hiện chuyển đổi này. Các đặc điểm quan trọng của mô hình bao gồm:
+\begin{itemize}
+  \item \textbf{Số chiều vector:} Cung cấp các vector có độ dài 768 chiều, giúp lưu giữ thông tin ngữ nghĩa một cách chi tiết.
+  \item \textbf{Hỗ trợ đa ngôn ngữ:} Được huấn luyện trên tập dữ liệu lớn bao gồm tiếng Việt, tiếng Anh và hơn 50 ngôn ngữ khác.
+  \item \textbf{Tính tương đồng ngữ nghĩa:} Các văn bản có nội dung tương tự nhau sẽ được biểu diễn bởi các vector nằm gần nhau trong không gian. Khoảng cách này thường được đo bằng phương pháp Cosine Similarity hoặc Euclidean Distance.
+\end{itemize}
+
+\subsubsection{FAISS (Facebook AI Similarity Search)}
+FAISS là một thư viện mã nguồn mở được phát triển bởi Facebook AI Research, chuyên dùng để tìm kiếm sự tương đồng và phân cụm các vector dày đặc (dense vectors) một cách hiệu quả. Trong hệ thống SmartDoc AI, FAISS đóng vai trò là cơ sở dữ liệu vector (Vector Store) với các ưu điểm vượt trội:
+\begin{itemize}
+  \item \textbf{Tốc độ truy xuất:} Cho phép tìm kiếm cực nhanh ngay cả khi cơ sở dữ liệu lên đến hàng triệu vector.
+  \item \textbf{Tối ưu bộ nhớ:} Hỗ trợ các phương pháp lập chỉ mục (indexing) giúp tiết kiệm bộ nhớ RAM nhưng vẫn đảm bảo hiệu suất tìm kiếm.
+  \item \textbf{Tìm kiếm Top-k:} Hệ thống thực hiện Similarity Search để trích xuất $k = 3$ đoạn văn bản có điểm tương đồng cao nhất với câu hỏi của người dùng để làm ngữ cảnh cho mô hình ngôn ngữ.
+\end{itemize}
+
+\subsection{Large Language Models (LLMs)}
+
+Large Language Models (LLMs) đóng vai trò là trung tâm xử lý ngôn ngữ trong hệ thống RAG, chịu trách nhiệm hiểu ngữ cảnh và sinh câu trả lời tự nhiên.
+
+\subsubsection{Qwen2.5}
+Dự án sử dụng phiên bản Qwen2.5:7b, một mô hình ngôn ngữ lớn được phát triển bởi Alibaba Cloud với các ưu điểm nổi bật:
+\begin{itemize}
+  \item \textbf{Kiến trúc:} Dựa trên kiến trúc Transformer thế hệ mới, tối ưu hóa cho hiệu suất xử lý đa nhiệm.
+  \item \textbf{Khả năng đa ngôn ngữ:} Được huấn luyện trên tập dữ liệu khổng lồ, mang lại hiệu suất vượt trội cho tiếng Việt so với các mô hình cùng phân khúc như Llama3.
+  \item \textbf{Ngữ cảnh lớn:} Hỗ trợ cửa sổ ngữ cảnh (context window) lên đến 128K tokens, cho phép xử lý các tài liệu dài một cách hiệu quả.
+\end{itemize}
+
+\subsubsection{Ollama}
+Ollama là nền tảng hỗ trợ vận hành các mô hình ngôn ngữ lớn trực tiếp trên môi trường local:
+\begin{itemize}
+  \item \textbf{Hiệu suất:} Được tối ưu hóa để chạy mượt mà trên máy tính cá nhân mà không cần kết nối Internet sau khi đã tải mô hình.
+  \item \textbf{Giao tiếp:} Cung cấp API đơn giản giúp tích hợp dễ dàng vào các ứng dụng Python thông qua framework LangChain.
+\end{itemize}
+
+\subsection{LangChain Framework}
+
+LangChain là một framework mã nguồn mở mạnh mẽ được thiết kế để đơn giản hóa việc xây dựng các ứng dụng tích hợp LLMs. Trong hệ thống này, LangChain đóng vai trò là ``trình điều phối'' (orchestrator) kết nối các thành phần rời rạc thành một pipeline hoàn chỉnh:
+\begin{itemize}
+  \item \textbf{Document Loaders:} Tải và tiền xử lý dữ liệu từ các định dạng tệp khác nhau (như PDFPlumber).
+  \item \textbf{Text Splitters:} Chia nhỏ văn bản thành các chunks có kích thước phù hợp để tối ưu hóa quá trình embedding và truy xuất.
+  \item \textbf{Chains:} Thiết lập luồng logic điều khiển từ lúc nhận câu hỏi, truy xuất ngữ cảnh từ FAISS cho đến khi gửi prompt tới Qwen2.5 để nhận phản hồi.
+\end{itemize}
+
+% ============================================================
+\section{Thiết Kế Hệ Thống}
+
+\subsection{Kiến trúc tổng quan (Multi-layer Architecture)}
+
+Hệ thống SmartDoc AI được tổ chức theo mô hình kiến trúc phân tầng để tối ưu hóa việc quản lý luồng dữ liệu và đảm bảo tính module hóa. Cấu trúc hệ thống gồm 4 lớp chính:
+\begin{itemize}
+  \item \textbf{Presentation Layer (Giao diện):} Xây dựng trên nền tảng Streamlit, đóng vai trò là điểm tiếp nhận tương tác, xử lý việc tải tài liệu và hiển thị kết quả truy vấn cùng các thông số vận hành (benchmark).
+  \item \textbf{Processing Layer (Xử lý):} Sử dụng LangChain để thiết lập đường ống tiền xử lý, bao gồm trích xuất nội dung PDF, phân đoạn văn bản (chunking) và gắn metadata cho từng khối dữ liệu.
+  \item \textbf{Retrieval Layer (Truy xuất):} Quản lý bởi FAISS Vector Store, chịu trách nhiệm thực hiện các thuật toán tìm kiếm tương đồng ngữ nghĩa, kết hợp Hybrid Search và kỹ thuật Re-ranking để lựa chọn các ngữ cảnh (k-context) tối ưu nhất.
+  \item \textbf{Generation Layer (Sinh nội dung):} Tầng tích hợp LLM thông qua Ollama, sử dụng mô hình Qwen2.5:7b để tổng hợp câu trả lời dựa trên ngữ cảnh đã truy xuất; lịch sử hội thoại được đưa vào prompt để hỗ trợ câu hỏi nối tiếp.
+\end{itemize}
+
+\subsection{Luồng dữ liệu (Data Flow)}
+
+\subsubsection{Document Processing Flow}
+Khi người dùng tải tài liệu lên, hệ thống sẽ thực hiện lần lượt các bước: kiểm tra đầu vào, trích xuất nội dung văn bản, chia nhỏ thành các chunk, gắn metadata và tạo chỉ mục truy xuất. Sau khi quá trình xử lý hoàn tất, tài liệu sẽ được lưu vào phiên làm việc để phục vụ cho các truy vấn tiếp theo.
+
+\subsubsection{Query Processing Flow}
+\begin{itemize}
+  \item \textbf{Upload file:} Người dùng tải tài liệu PDF lên hệ thống.
+  \item \textbf{File extraction:} Hệ thống trích xuất nội dung từ file nguồn.
+  \item \textbf{Chunking:} Văn bản được chia thành các đoạn nhỏ để tối ưu cho truy xuất.
+  \item \textbf{Metadata assignment:} Mỗi chunk được gắn thông tin nguồn, trang và vị trí.
+  \item \textbf{Indexing:} Hệ thống tạo embedding và xây dựng vector index.
+  \item \textbf{Session storage:} Retriever và dữ liệu được lưu vào bộ nhớ phiên.
+\end{itemize}
+
+% ============================================================
+\section{Triển Khai}
+
+\subsection{Công nghệ sử dụng}
+
+Hệ thống SmartDoc AI được triển khai bằng các công nghệ chính sau:
+\begin{itemize}
+  \item \textbf{Python:} ngôn ngữ lập trình chính cho toàn bộ hệ thống.
+  \item \textbf{Streamlit:} xây dựng giao diện người dùng web nhanh chóng và trực quan.
+  \item \textbf{LangChain:} hỗ trợ xây dựng pipeline RAG, prompt template và tích hợp mô hình ngôn ngữ.
+  \item \textbf{Ollama:} chạy mô hình ngôn ngữ cục bộ, không cần API key từ bên ngoài.
+  \item \textbf{FAISS:} xây dựng vector database phục vụ truy xuất theo embedding.
+  \item \textbf{BM25:} hỗ trợ truy xuất theo từ khóa trong mô hình hybrid search.
+  \item \textbf{Sentence-Transformers:} tạo embedding cho văn bản.
+  \item \textbf{CrossEncoder:} rerank lại các candidate sau khi truy xuất để giảm nhiễu.
+  \item \textbf{PyTorch:} hỗ trợ suy luận trên CPU/GPU cho embedding và reranker.
+  \item \textbf{pdfplumber, pypdf:} trích xuất nội dung từ tài liệu PDF.
+  \item \textbf{pandas, numpy:} xử lý dữ liệu và phục vụ benchmark.
+\end{itemize}
+
+\subsection{Cài đặt môi trường}
+
+Hệ thống được chạy trong môi trường ảo Python để đảm bảo tính tách biệt giữa các thư viện của dự án và hệ điều hành. Các bước cài đặt gồm:
+
+\subsubsection{Tạo môi trường ảo}
+\begin{lstlisting}[language=bash]
+python3.12 -m venv venv
+source venv/bin/activate
+\end{lstlisting}
+
+\subsubsection{Cài đặt các thư viện cần thiết}
+\begin{lstlisting}[language=bash]
+pip install -r requirements.txt
+\end{lstlisting}
+
+\subsubsection{Cài đặt mô hình ngôn ngữ cục bộ bằng Ollama}
+\begin{lstlisting}[language=bash]
+ollama pull qwen2.5:7b
+\end{lstlisting}
+
+\subsubsection{Chạy ứng dụng}
+\begin{lstlisting}[language=bash]
+streamlit run app.py
+\end{lstlisting}
+
+Trong trường hợp máy có GPU NVIDIA, hệ thống có thể tận dụng CUDA để tăng tốc embedding và rerank. Nếu môi trường chỉ có CPU, hệ thống vẫn có thể chạy bình thường nhưng thời gian xử lý sẽ chậm hơn.
+
+\subsection{Cấu trúc thư mục}
+
+Dự án được tổ chức theo dạng module để tách biệt rõ ràng giữa phần giao diện, xử lý tài liệu, truy xuất thông tin và sinh câu trả lời.
+
+\begin{lstlisting}
+generative-AI/
+|-- app.py
+|-- config.py
+|-- requirements.txt
+|-- Makefile
+|-- README.md
+|-- data/
+|   |-- chat_history.json
+|   |-- faiss_index/
+|   '-- pdfs/
+'-- src/
+  |-- application/
+  |   |-- pipeline.py
+  |   |-- chain_citation.py
+  |   |-- chain_hybrid.py
+  |   |-- chain_multidoc.py
+  |   |-- chain_rerank.py
+  |   |-- chain_selfrag.py
+  |   |-- chain_graphrag.py
+  |   '-- promts.py
+  |-- data_layer/
+  |   |-- embeddings.py
+  |   '-- vector_store.py
+  |-- model_layer/
+  |   '-- llm_interface.py
+  '-- presentation/
+    |-- components.py
+    |-- comp_citation.py
+    |-- comp_multidoc.py
+    '-- styles.py
+\end{lstlisting}
+
+Trong đó:
+\begin{itemize}
+  \item \textbf{application:} chứa các chain và pipeline chính của hệ thống RAG.
+  \item \textbf{data\_layer:} chứa thành phần truy xuất và vector store (FAISS, BM25).
+  \item \textbf{model\_layer:} chứa lớp giao tiếp với LLM (Ollama).
+  \item \textbf{presentation:} chứa các thành phần giao diện Streamlit.
+\end{itemize}
+
+\subsection{Cấu hình chi tiết}
+
+Trong phiên bản hiện tại, các tham số cấu hình chính (embedding model, LLM model, tham số truy xuất) được khai báo trực tiếp trong các module xử lý như \texttt{src/application/pipeline.py} và các file chain tương ứng.
+
+Hệ thống có sử dụng lazy initialization ở một số thành phần nặng (ví dụ Cross-Encoder cho re-ranking) để tránh tải lại mô hình ở mỗi truy vấn. Ngoài ra, \texttt{st.session\_state} được dùng để lưu trạng thái chạy (vector\_db, lịch sử hội thoại, chunk settings, search mode, debug info).
+
+\begin{lstlisting}[language=Python]
+embeddings = HuggingFaceEmbeddings(
+  model_name="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+  model_kwargs={"device": "cpu"},
+  encode_kwargs={"normalize_embeddings": True},
+)
+\end{lstlisting}
+
+Ngoài ra, hệ thống còn lưu trạng thái làm việc trong \texttt{st.session\_state} để giữ: danh sách hội thoại, retriever hiện tại, vector database, số lượng chunk đã xử lý, và danh sách document đã upload.
+
+% ============================================================
+\section{Giao Diện Người Dùng}
+
+\subsection{Thiết kế UI/UX}
+
+Giao diện người dùng được xây dựng bằng Streamlit theo hướng đơn giản, trực quan và dễ sử dụng. Toàn bộ bố cục được chia thành các khu vực chính:
+\begin{itemize}
+  \item \textbf{Sidebar:} hiển thị thông tin hệ thống, hướng dẫn nhanh và các nút quản lý dữ liệu.
+  \item \textbf{Khu vực upload:} cho phép người dùng tải tài liệu PDF lên hệ thống.
+  \item \textbf{Khu vực xử lý tài liệu:} hiển thị tiến trình trích xuất, chunking và tạo retriever.
+  \item \textbf{Khu vực chat:} cho phép người dùng nhập câu hỏi và xem câu trả lời.
+  \item \textbf{Khu vực benchmark:} so sánh hiệu năng giữa vector search và hybrid search.
+\end{itemize}
+
+Các nguyên tắc UI/UX chính:
+\begin{itemize}
+  \item ưu tiên sự rõ ràng và đơn giản;
+  \item hiển thị trạng thái xử lý theo từng bước;
+  \item tách biệt rõ phần upload, hỏi đáp và benchmark;
+  \item hiển thị nguồn trích dẫn để tăng độ tin cậy;
+  \item hỗ trợ xem lại lịch sử hội thoại.
+\end{itemize}
+
+\subsection{User Flow}
+
+Luồng người dùng trong hệ thống được thiết kế theo các bước sau:
+\begin{enumerate}
+  \item Người dùng mở ứng dụng SmartDoc AI trên trình duyệt.
+  \item Người dùng thiết lập các tham số như chunk size, chunk overlap, search mode (Semantic/Hybrid), và bật/tắt re-ranking hoặc self-RAG.
+  \item Người dùng upload tài liệu PDF.
+  \item Hệ thống trích xuất nội dung từ tài liệu và chia thành các chunk nhỏ.
+  \item Hệ thống tạo vector database và retriever tương ứng.
+  \item Người dùng nhập câu hỏi vào khung chat.
+  \item Hệ thống lấy ngữ cảnh theo pipeline đã chọn (semantic/hybrid; có thể thêm rerank/self-RAG).
+  \item Hệ thống xây dựng context và gửi vào LLM để sinh câu trả lời, kèm theo danh sách citation.
+  \item Kết quả trả lời và nguồn trích dẫn được hiển thị cho người dùng.
+  \item Nếu cần, người dùng có thể dùng chế độ so sánh RAG và GraphRAG ngay trên giao diện.
+\end{enumerate}
+
+\subsection{Các tính năng (Features)}
+
+Dựa trên lộ trình phát triển của dự án SmartDoc AI, hệ thống được thiết kế với 10 module chức năng chính nhằm nâng cao trải nghiệm và hiệu suất truy xuất:
+
+\begin{itemize}
+  \item \textbf{Module 1 - Hỗ trợ tệp tin DOCX (chưa hoàn thiện):} Dự án đã chuẩn bị phụ thuộc \texttt{python-docx}, tuy nhiên luồng upload và pipeline chính hiện tại vẫn tập trung cho PDF.
+  \item \textbf{Module 2 - Lưu trữ lịch sử hội thoại:} Tích hợp khả năng lưu lại danh sách các câu hỏi và câu trả lời trong suốt phiên làm việc, giúp người dùng dễ dàng theo dõi lại nội dung đã thảo luận.
+  \item \textbf{Module 3 - Quản lý trạng thái hệ thống:} Cung cấp các công cụ quản trị trực tiếp trên giao diện như nút xóa lịch sử chat và nút làm mới kho lưu trữ vector để sẵn sàng cho tài liệu mới.
+  \item \textbf{Module 4 - Tùy chỉnh chiến lược phân đoạn:} Cho phép người dùng hoặc lập trình viên can thiệp vào các thông số \texttt{chunk\_size} và \texttt{chunk\_overlap} để tìm ra cấu hình phù hợp nhất cho từng loại tài liệu cụ thể.
+  \item \textbf{Module 5 - Truy xuất nguồn gốc (Citation):} Hiển thị chính xác vị trí thông tin được trích dẫn (số trang, đoạn văn bản gốc) giúp tăng tính minh bạch và độ tin cậy cho câu trả lời của AI.
+  \item \textbf{Module 6 - Conversational RAG (mức prompt-history):} Hệ thống sử dụng lịch sử hội thoại gần nhất để đưa vào prompt, hỗ trợ câu hỏi nối tiếp nhưng chưa tách thành memory chain chuyên biệt.
+  \item \textbf{Module 7 - Tìm kiếm hỗn hợp (Hybrid Search):} Kết hợp phương pháp tìm kiếm theo vector (semantic search) và tìm kiếm theo từ khóa (BM25) để tối ưu hóa khả năng tìm kiếm thông tin chính xác.
+  \item \textbf{Module 8 - RAG đa tài liệu:} Hỗ trợ tải lên và xử lý nhiều tài liệu cùng lúc, kết hợp với việc lọc theo metadata để đảm bảo thông tin được tổng hợp đầy đủ từ nhiều nguồn.
+  \item \textbf{Module 9 - Tái xếp hạng (Re-ranking):} Sử dụng mô hình Cross-Encoder để đánh giá lại độ liên quan của các kết quả trả về, đảm bảo những thông tin quan trọng nhất luôn được ưu tiên đưa vào LLM.
+  \item \textbf{Module 10 - Self-RAG nâng cao:} Triển khai các kỹ thuật tự đánh giá câu trả lời, tự động cải thiện câu truy vấn và thực hiện suy luận đa bước để giải quyết các vấn đề phức tạp.
+  \item \textbf{Mở rộng thêm - So sánh RAG và GraphRAG:} Giao diện có thêm chế độ so sánh kết quả giữa pipeline RAG chuẩn và GraphRAG để quan sát độ bao phủ nguồn và thời gian phản hồi.
+\end{itemize}
+
+% ============================================================
+\section{Chi Tiết Các Module}
+
+\subsection{Module 1 - Hỗ trợ tệp tin DOCX}
+\textbf{Mục tiêu:} Mở rộng hệ thống để xử lý thêm tài liệu DOCX bên cạnh PDF.
+
+\textbf{Hiện trạng triển khai:} Đã tích hợp thành công. Giao diện người dùng cho phép tải lên đồng thời cả tệp PDF và DOCX. Hệ thống (pipeline) tự động phân loại và định tuyến (dynamic dispatch) để trích xuất văn bản tương ứng, sau đó gộp chung tất cả các khối văn bản (chunks) vào một Vector Store (FAISS) duy nhất.
+
+\subsection{Module 2 - Lưu trữ lịch sử hội thoại}
+\textbf{Mục tiêu:} Lưu lại lịch sử hỏi đáp để người dùng có thể tiếp tục hoặc xem lại các cuộc trò chuyện trước.
+
+\textbf{Triển khai hiện tại:}
+\begin{itemize}
+  \item Hệ thống lưu conversation theo định dạng JSON trong \texttt{data/chat\_history.json}.
+  \item Mỗi conversation có \texttt{id}, \texttt{title}, \texttt{created\_at}, \texttt{messages}.
+  \item Sidebar cho phép mở lại hội thoại, tạo đoạn chat mới và xóa từng conversation.
+\end{itemize}
+
+\textbf{Kết quả:} Module đã hoạt động ổn định, hỗ trợ tốt trải nghiệm làm việc nhiều phiên liên tiếp.
+
+\subsection{Module 3 - Quản lý trạng thái hệ thống}
+\textbf{Mục tiêu:} Cho phép người dùng làm sạch dữ liệu nhanh, tránh nhiễu ngữ cảnh từ phiên cũ.
+
+\textbf{Triển khai hiện tại:}
+\begin{itemize}
+  \item Nút \textit{Xóa lịch sử chat} với hộp thoại xác nhận trước khi thực thi.
+  \item Nút \textit{Xóa Vector Store} với hộp thoại xác nhận, đồng thời xóa chỉ mục và thư mục PDF đã upload.
+  \item Sau khi xóa, trạng thái chính trong \texttt{st.session\_state} được reset để đảm bảo nhất quán.
+\end{itemize}
+
+\textbf{Kết quả:} Đáp ứng đúng yêu cầu quản trị dữ liệu ở mức giao diện và tầng lưu trữ cục bộ.
+
+
+\subsection{Module 4 - Tùy chỉnh chiến lược phân đoạn}
+\textbf{Mục tiêu:} Điều chỉnh \texttt{chunk\_size} và \texttt{chunk\_overlap} theo từng loại tài liệu để tăng chất lượng truy xuất.
+
+\textbf{Triển khai hiện tại:}
+\begin{itemize}
+  \item Sidebar cung cấp slider cho \texttt{chunk\_size} và \texttt{chunk\_overlap}.
+  \item Cấu hình chunk được đưa trực tiếp vào pipeline khi tạo vector store.
+  \item Hệ thống ghi nhận log benchmark cơ bản (số chunk, thời gian xử lý) để so sánh nhanh.
+\end{itemize}
+
+\textbf{Giới hạn hiện tại:} Chưa có bộ test tự động để chấm điểm chất lượng trả lời theo từng cấu hình chunk.
+
+\textbf{Kết luận từ thực nghiệm:} Việc điều chỉnh \texttt{chunk\_size} dẫn đến trade-off giữa precision và recall trong truy xuất thông tin. 
+Chunk nhỏ giúp embedding tập trung vào một ý cụ thể, từ đó tăng precision nhưng dễ làm mất ngữ cảnh quan trọng, gây giảm recall. 
+Ngược lại, chunk lớn giữ được nhiều ngữ cảnh hơn, cải thiện recall nhưng làm giảm precision do vector biểu diễn bị pha trộn nhiều chủ đề.
+Vì vậy, không tồn tại giá trị tối ưu chung; \texttt{chunk\_size} cần được điều chỉnh theo đặc thù dữ liệu và loại truy vấn để đạt hiệu quả cân bằng.
+
+\begin{figure}[h]
+  \centering
+  \IfFileExists{imgs/cau4.png}{\includegraphics[width=\linewidth]{imgs/cau4.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 4: imgs/cau4.png}}}
+  \caption{Minh họa Module 4 - Tùy chỉnh chiến lược phân đoạn}
+  \label{fig:module4_chunk}
+\end{figure}
+
+\subsection{Module 5 - Truy xuất nguồn gốc (Citation)}
+\textbf{Mục tiêu:} Tăng độ tin cậy của câu trả lời bằng cách hiển thị rõ nguồn trích dẫn.
+
+\textbf{Triển khai hiện tại:}
+\begin{itemize}
+  \item Mỗi đoạn context được đánh số \texttt{[Nguồn X]} và gắn trang, tên tài liệu.
+  \item Giao diện hiển thị source chips và vùng trích đoạn có highlight từ khóa.
+  \item Người dùng có thể mở từng nguồn để xem lại ngữ cảnh gốc dùng để sinh câu trả lời.
+\end{itemize}
+
+\textbf{Kết quả:} Module hoạt động tốt, hỗ trợ kiểm chứng nội dung và giảm cảm giác ``hộp đen'' của LLM.
+
+\begin{figure}[h]
+  \centering
+  \IfFileExists{imgs/cau5.png}{\includegraphics[width=\linewidth]{imgs/cau5.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 5: imgs/cau5.png}}}
+  \caption{Minh họa Module 5 - Citation (placeholder)}
+  \label{fig:module5_citation}
+\end{figure}
+
+\subsection{Module 6 - Conversational RAG}
+\textbf{Mục tiêu:} Giúp hệ thống xử lý các câu hỏi nối tiếp trong cùng mạch hội thoại.
+
+\textbf{Triển khai hiện tại:}
+\begin{itemize}
+  \item \textbf{Conversational Query Rewrite (Tiền xử lý câu hỏi):} Trước khi truy xuất, hệ thống sử dụng LLM để phân tích câu hỏi hiện tại và lịch sử hội thoại, từ đó viết lại thành một câu hỏi độc lập (standalone query) rõ nghĩa và đầy đủ ngữ cảnh (ví dụ: chuyển "Ông ấy là ai?" thành "Nguyễn Hoàng Anh là ai?").
+  \item Truy vấn độc lập này được dùng để tìm kiếm vector, đảm bảo độ chính xác cao nhất kể cả khi người dùng dùng đại từ thay thế.
+  \item Lịch sử hội thoại tiếp tục được đưa vào prompt chính để LLM sinh câu trả lời mượt mà, đúng mạch trò chuyện.
+\end{itemize}
+
+\textbf{Kết quả:} Giải quyết triệt để vấn đề mất ngữ cảnh trong các câu hỏi nối tiếp. Giới hạn hiện tại là chưa có cơ chế tóm tắt lịch sử nếu đoạn chat quá dài.
+
+\begin{figure}[h]
+  \centering
+  \IfFileExists{imgs/cau6.png}{\includegraphics[width=\linewidth]{imgs/cau6.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 6: imgs/cau6.png}}}
+  \caption{Minh họa Module 6 - Conversational RAG (placeholder)}
+  \label{fig:module6_conversational}
+\end{figure}
+
+\subsection{Module 7 - Tìm kiếm hỗn hợp (Hybrid Search)}
+\textbf{Mục tiêu:} Kết hợp semantic search và keyword search để tăng độ bao phủ khi truy xuất.
+
+\textbf{Triển khai hiện tại:}
+\begin{itemize}
+  \item Semantic retrieval dùng FAISS.
+  \item Keyword retrieval dùng BM25.
+  \item Ensemble Retriever kết hợp hai nguồn với trọng số thực nghiệm (vector ưu tiên cao hơn BM25).
+  \item Người dùng có thể chọn trực tiếp \textit{Semantic} hoặc \textit{Hybrid} trên sidebar.
+\end{itemize}
+
+\textbf{Kết quả:} Hybrid cho hiệu quả tốt hơn với câu hỏi chứa từ khóa chuyên biệt hoặc cụm thuật ngữ hiếm.
+
+\begin{figure}[h]
+  \centering
+  \IfFileExists{imgs/cau7.png}{\includegraphics[width=\linewidth]{imgs/cau7.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 7: imgs/cau7.png}}}
+  \caption{Minh họa Module 7 - Hybrid Search}
+  \label{fig:module7_hybrid}
+\end{figure}
+
+\subsection{Module 8 - RAG đa tài liệu}
+\textbf{Mục tiêu:} Hỗ trợ truy vấn trên nhiều tài liệu cùng lúc và lọc theo nguồn mong muốn.
+
+\textbf{Triển khai hiện tại:}
+\begin{itemize}
+  \item Upload nhiều PDF trong một lần xử lý.
+  \item Pipeline gắn metadata như \texttt{filename}, \texttt{upload\_time}, \texttt{file\_type} cho từng chunk.
+  \item Giao diện hỗ trợ lọc theo tài liệu; retriever chỉ tìm trong tập tài liệu đã chọn.
+\end{itemize}
+
+\textbf{Kết quả:} Đáp ứng nhu cầu tổng hợp thông tin từ nhiều nguồn và giúp người dùng khoanh vùng truy vấn theo từng file.
+
+\begin{figure}[h]
+  \centering
+  \IfFileExists{imgs/cau8.png}{\includegraphics[width=\linewidth]{imgs/cau8.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 8: imgs/cau8.png}}}
+  \caption{Minh họa Module 8 - Multi-document RAG (placeholder)}
+  \label{fig:module8_multidoc}
+\end{figure}
+
+\subsection{Module 9 - Tái xếp hạng (Re-ranking)}
+\textbf{Mục tiêu:} Tăng độ chính xác ngữ cảnh đầu vào cho LLM bằng bước chấm điểm lại candidate sau truy xuất ban đầu.
+
+\textbf{Triển khai hiện tại:}
+\begin{itemize}
+  \item Hệ thống lấy danh sách candidate lớn hơn ở bước retrieval đầu.
+  \item Cross-Encoder chấm điểm từng cặp \texttt{(query, chunk)} và sắp xếp lại theo độ liên quan.
+  \item Chỉ top documents sau re-ranking mới được đưa vào bước sinh câu trả lời.
+\end{itemize}
+
+\textbf{Kết quả:} Cải thiện chất lượng context, đặc biệt với câu hỏi dài hoặc có nhiều khía cạnh.
+
+\begin{figure}[h]
+  \centering
+  \IfFileExists{imgs/cau9.png}{\includegraphics[width=\linewidth]{imgs/cau9.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 9: imgs/cau9.png}}}
+  \caption{Minh họa Module 9 - Re-ranking (placeholder)}
+  \label{fig:module9_rerank}
+\end{figure}
+
+\subsection{Module 10 - Self-RAG nâng cao}
+\textbf{Mục tiêu:} Tăng tính tự kiểm tra của hệ thống thông qua đánh giá độ tin cậy và tự cải thiện truy vấn.
+
+\textbf{Triển khai hiện tại:}
+\begin{itemize}
+  \item Sau khi có câu trả lời hop 1, hệ thống gọi prompt đánh giá để lấy \texttt{confidence} và cờ \texttt{needs\_rewrite}.
+  \item Nếu độ tin cậy thấp hoặc cần viết lại truy vấn, hệ thống thực hiện hop 2 với query rewrite.
+  \item Kết quả cuối được tổng hợp từ nhiều hop, đồng thời hiển thị confidence để người dùng tham khảo.
+\end{itemize}
+
+\textbf{Kết quả:} Nâng cao độ robust cho truy vấn khó; đổi lại chi phí thời gian suy luận tăng so với pipeline RAG cơ bản.
+
+\begin{figure}[h]
+  \centering
+  \IfFileExists{imgs/cau10.png}{\includegraphics[width=\linewidth]{imgs/cau10.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 10: imgs/cau10.png}}}
+  \caption{Minh họa Module 10 - Self-RAG (placeholder)}
+  \label{fig:module10_selfrag}
+\end{figure}
+
+\subsection{Module 11 - So sánh RAG và GraphRAG (Mở rộng thêm)}
+\textbf{Mục tiêu:} Giải quyết các truy vấn phức tạp mang tính tổng hợp hoặc suy luận đa bước. Thay vì chỉ tìm các đoạn văn bản rời rạc, GraphRAG kết nối các thực thể và mối quan hệ để hiểu được bức tranh toàn cảnh của dữ liệu.
+
+\textbf{Triển khai hiện tại:}
+\begin{itemize}
+  \item Tự động xây dựng đồ thị (Graph Index) từ các chunk tài liệu: các node là các khối văn bản, các cạnh được tính toán dựa trên mức độ trùng lặp từ khóa (terms overlap) và khoảng cách vị trí trang.
+  \item Khi truy vấn, hệ thống dùng thuật toán MMR để tìm các node hạt giống (seed docs), sau đó duyệt đồ thị 2-hop (2-hop traversal) để mở rộng các ngữ cảnh liên quan.
+  \item \textbf{Chế độ so sánh (Compare Mode):} Cho phép chạy song song RAG tiêu chuẩn và GraphRAG, đo lường thời gian thực thi (Latency), số lượng nguồn truy xuất (Sources) và độ trùng lặp nguồn (Overlap).
+  \item Tích hợp tính năng \textbf{Benchmark \& Export Data}: Tự động lưu log hiệu năng và cho phép xuất dữ liệu thô (TSV, Markdown) để dễ dàng vẽ biểu đồ LaTeX (PGFPlots) hoặc Excel.
+\end{itemize}
+
+\textbf{Kết quả:} Cung cấp công cụ mạnh mẽ để đánh giá trực quan sự khác biệt giữa hai kiến trúc. GraphRAG cho thấy độ bao phủ thông tin tốt hơn với các câu hỏi phức tạp, giải quyết tốt các bài toán suy luận đa bước.
+
+\begin{figure}[h]
+  \centering
+  \IfFileExists{imgs/cau11.png}{\includegraphics[width=\linewidth]{imgs/cau11.png}}{\fbox{\parbox{0.95\linewidth}{Placeholder ảnh Module 11: imgs/cau11.png}}}
+  \caption{Minh họa Module 11 - So sánh RAG và GraphRAG (Mở rộng thêm)}
+  \label{fig:module11_rag_graphrag}
+\end{figure}
+
+\subsubsection*{Bảng đánh giá Chunking}
+
+\begin{table}[H]
+  \centering
+  \caption{Thông số chunking}
+  \renewcommand{\arraystretch}{1.4}
+  \begin{tabular}{
+      >{\centering\arraybackslash}m{2cm}
+      >{\centering\arraybackslash}m{1.5cm}
+      >{\centering\arraybackslash}m{2cm}
+      >{\centering\arraybackslash}m{1.5cm}
+  }
+    \toprule
+    \rowcolor{headercolor}
+    \textbf{Chunk Size} & \textbf{Overlap} & \textbf{Chunks Count} & \textbf{Time (s)} \\
+    \midrule
+    1000 & 150 & 9 & 8.573 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\vspace{0.5cm}
+
+\subsubsection*{Biểu đồ so sánh thời gian xử lý: RAG vs GraphRAG}
+
+\begin{figure}[H]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      ybar,
+      width=0.9\linewidth,
+      height=6cm,
+      bar width=0.8cm,
+      ymin=0,
+      ymax=280,
+      xtick=data,
+      symbolic x coords={Q1},
+      xlabel={Câu hỏi},
+      ylabel={Thời gian (s)},
+      ylabel style={font=\small},
+      xlabel style={font=\small},
+      nodes near coords,
+      nodes near coords align={vertical},
+      nodes near coords style={
+        font=\small\bfseries,
+        /pgf/number format/.cd, fixed, precision=2
+      },
+      enlarge x limits=0.6,
+      ymajorgrids=true,
+      grid style={dashed, gray!30},
+      axis line style={gray!50},
+      tick style={gray!50},
+      legend style={
+        at={(0.5,-0.25)},
+        anchor=north,
+        legend columns=2,
+        draw=gray!40,
+        font=\small,
+        /tikz/every even column/.append style={column sep=0.5cm}
+      },
+      legend cell align=left,
+    ]
+      \addplot[fill=ragblue, draw=ragblue!80!black, bar shift=-0.4cm]
+        coordinates {(Q1, 145.2)};
+      \addplot[fill=graphred, draw=graphred!80!black, bar shift=0.4cm]
+        coordinates {(Q1, 237.46)};
+      \legend{RAG, GraphRAG}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{So sánh thời gian xử lý (giây) giữa RAG và GraphRAG}
+\end{figure}
+
+\vspace{0.5cm}
+
+\subsubsection*{Bảng so sánh RAG vs GraphRAG}
+
+\begin{table}[H]
+  \centering
+  \caption{Chi tiết kết quả so sánh}
+  \renewcommand{\arraystretch}{1.4}
+  \resizebox{\linewidth}{!}{%
+  \begin{tabular}{
+      >{\raggedright\arraybackslash}m{3.5cm}
+      >{\centering\arraybackslash}m{1.5cm}
+      >{\centering\arraybackslash}m{1.8cm}
+      >{\centering\arraybackslash}m{1.5cm}
+      >{\centering\arraybackslash}m{1.8cm}
+      >{\centering\arraybackslash}m{1.2cm}
+  }
+    \toprule
+    \rowcolor{headercolor}
+    \textbf{Query} &
+    \textbf{RAG Time (s)} &
+    \textbf{GraphRAG Time (s)} &
+    \textbf{RAG Sources} &
+    \textbf{GraphRAG Sources} &
+    \textbf{Overlap} \\
+    \midrule
+    project của Nguyễn Hoàng Anh &
+    \textcolor{ragblue}{\textbf{145.2}} &
+    \textcolor{graphred}{\textbf{237.46}} &
+    3 & 4 & 1 \\
+    \bottomrule
+  \end{tabular}%
+  }
+\end{table}
+
+\vspace{0.5cm}
+
+\subsubsection*{Phân tích chênh lệch}
+
+\noindent
+\textbf{RAG} xử lý nhanh hơn \textbf{GraphRAG} khoảng \textbf{63.5\%} đối với câu hỏi Q1.
+GraphRAG mất thêm \textbf{92.26 giây} so với RAG ($237.46 - 145.2 = 92.26$ giây).
+
+\vspace{0.4cm}
+\noindent
+\begin{tikzpicture}
+  \fill[ragblue!20] (0,0) rectangle (8.5,0.5);
+  \fill[ragblue] (0,0) rectangle (5.18,0.5);  % 61% of 8.5
+  \node[right] at (5.2, 0.25) {\small \textbf{RAG nhanh hơn +63.5\%}};
+\end{tikzpicture}
+
+% ============================================================
+\section{Kết Quả Và Đánh Giá}
+
+\subsection{Kết quả đạt được}
+\subsection{Testing \& Test Cases}
+
+\textbf{Test Case 1: Simple Factual Question}
+\begin{itemize}
+    \item \textbf{Document:} Tài liệu kỹ thuật
+    \item \textbf{Question:} ``Các bước cài đặt là gì?''
+    \item \textbf{Expected:} Hướng dẫn chi tiết bước cài đặt.
+    \item \textbf{Result:} $\checkmark$ Passed
+\end{itemize}
+\begin{center}
+    \includegraphics[width=0.8\linewidth]{imgs/testcase1.png}
+    \captionof{figure}{Kết quả Test Case 1}
+    \label{fig:testcase1}
+\end{center}
+
+\textbf{Test Case 2: Suy luận phức tạp}
+\begin{itemize}
+    \item \textbf{Document:} Bài nghiên cứu khoa học
+    \item \textbf{Question:} ``Mục tiêu của bài nghiên cứu là gì?''
+    \item \textbf{Expected:} Tóm tắt và phân tích
+    \item \textbf{Result:} $\checkmark$ Passed
+\end{itemize}
+\begin{center}
+    \includegraphics[width=0.8\linewidth]{imgs/testcase2.png}
+    \captionof{figure}{Kết quả Test Case 2}
+    \label{fig:testcase2}
+\end{center}
+
+\textbf{Test Case 3: Hỏi sai ngữ cảnh}
+\begin{itemize}
+    \item \textbf{Document:} Công thức nấu ăn
+    \item \textbf{Question:} ``Hướng dẫn giải phương trình vi phân?''
+    \item \textbf{Expected:} Phản hồi ``Không tìm thấy thông tin''
+    \item \textbf{Result:} $\checkmark$ Passed
+\end{itemize}
+\begin{center}
+    \includegraphics[width=0.8\linewidth]{imgs/testcase3.png}
+    \captionof{figure}{Kết quả Test Case 3}
+    \label{fig:testcase3}
+\end{center}
+
+\subsection{Ưu điểm và Hạn chế}
+\subsection{So sánh với các giải pháp khác}
+
+% ============================================================
+\section{Kết Luận Và Hướng Phát Triển}
+
+\subsection{Tổng kết}
+\subsection{Hướng phát triển tương lai}
+
+% ============================================================
+\begin{thebibliography}{4}
+
+\bibitem{viblo}
+viblo.asia,
+\textit{Tìm hiểu về Retrieval Augmented Generation (RAG)}.
+\url{https://viblo.asia/p/tim-hieu-ve-retrieval-augmented-generation-rag-Ny0VGRd7LPA}
+
+\bibitem{langchain}
+LangChain,
+\textit{FAISS integration}.
+\url{https://docs.langchain.com/oss/python/integrations/vectorstores/faiss}
+
+\bibitem{ollama}
+Ollama,
+\textit{Local LLM runtime}.
+\url{https://ollama.ai/}
+
+\bibitem{qwen}
+Alibaba Cloud,
+\textit{Qwen2.5 Model Suite}.
+\url{https://github.com/QwenLM/Qwen2.5}
+
+\end{thebibliography}
+
+\end{document}

@@ -4,7 +4,7 @@ import time
 
 from langchain_community.llms import Ollama
 
-from src.application.promts import (
+from src.application.prompts import (
     get_rag_prompt,
     get_rag_prompt_with_history,
     get_self_rag_eval_prompt,

@@ -6,7 +6,7 @@ from src.data_layer.vector_store import (
     get_bm25_retriever,
     create_hybrid_retriever_from_vector_store,
 )
-from src.application.promts import get_rag_prompt, get_rag_prompt_with_history
+from src.application.prompts import get_rag_prompt, get_rag_prompt_with_history
 
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document

@@ -7,7 +7,7 @@ import time
 from langchain_community.llms import Ollama
 from langchain_core.documents import Document
 
-from src.application.promts import get_rag_prompt, get_rag_prompt_with_history
+from src.application.prompts import get_rag_prompt, get_rag_prompt_with_history
 
 
 STOPWORDS = {

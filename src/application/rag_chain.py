@@ -1,5 +1,5 @@
 from langchain_community.llms import Ollama
-from src.application.promts import get_rag_prompt
+from src.application.prompts import get_rag_prompt
 
 def get_answer(query: str, vector_db):
     """Hàm xử lý truy vấn RAG"""

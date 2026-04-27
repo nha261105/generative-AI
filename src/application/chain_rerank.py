@@ -5,7 +5,7 @@ import time
 from langchain_community.llms import Ollama
 from sentence_transformers import CrossEncoder
 
-from src.application.promts import get_rag_prompt, get_rag_prompt_with_history
+from src.application.prompts import get_rag_prompt, get_rag_prompt_with_history
 
 
 @lru_cache(maxsize=1)

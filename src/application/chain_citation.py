@@ -1,6 +1,6 @@
 from langchain_community.llms import Ollama
 from typing import Tuple, List, Dict
-from src.application.promts import get_rag_prompt, get_rag_prompt_with_history
+from src.application.prompts import get_rag_prompt, get_rag_prompt_with_history
 
 
 def _format_chat_history(chat_history: List[Dict] | None, max_turns: int = 5) -> str:
