@@ -1,68 +1,44 @@
 import streamlit as st
-import hashlib, importlib, time
+import hashlib, time
 from pathlib import Path
-from functools import lru_cache
 
 from data.history import (
     add_message, clear_all, clear_vector_store_directory,
     delete_conversation, get_conversation, load_conversations, new_conversation,
 )
-from src.application.chain_citation import get_answer_with_citation
-from src.application.chain_hybrid import get_answer_with_hybrid_citation
-from src.application.chain_multidoc import get_answer_multidoc
-from src.application.pipeline import process_multiple_files_to_vectorstore
-from src.application.rag_coordinator import execute as run_pipeline
+from src.application.pipeline import process_multiple_files_to_vectorstore, get_embeddings
+from src.application.query_handler import (
+    handle_standard_query, handle_comparison_query, create_benchmark_log_entry
+)
+from src.data_layer.vector_store import load_if_exists
 from src.presentation.comp_citation import render_answer as render_citation, render_comparison
 from src.presentation.comp_multidoc import render_doc_filter
+from src.presentation.comp_graph import render_graph_from_vector_store, get_graph_stats
 from src.presentation.components import (
     render_collapsed_sidebar_toggle, render_header, render_status_bar,
-    render_chat_messages, render_qa_input, render_sidebar, render_debug_panel,
+    render_chat_messages, render_sidebar, render_debug_panel,
 )
 from src.presentation.styles import get_css
+from src.utils.doc_helpers import normalize_sources, build_source_text
 
 st.set_page_config(page_title="SmartDoc AI", page_icon="📄", layout="wide", initial_sidebar_state="expanded")
 
-# ── Helpers ──────────────────────────────────────────────────────────
-def normalize_sources(raw) -> list[dict]:
-    out = []
-    for i, s in enumerate(raw or [], 1):
-        if isinstance(s, dict):
-            out.append({"id": s.get("id", i), "page": s.get("page", "?"),
-                         "content": str(s.get("content", "")).strip(),
-                         "source_file": s.get("source_file", "Tài liệu")})
-        else:
-            txt = str(s).strip(); sf, pg = "Tài liệu", "?"
-            if " - Trang " in txt:
-                sf, _, pg = txt.partition(" - Trang ")
-                sf = sf.strip() or "Tài liệu"; pg = pg.strip() or "?"
-            out.append({"id": i, "page": pg, "content": txt, "source_file": sf})
-    return out
-
-def build_source_text(sources: list[dict]) -> str:
-    labels = []
-    for s in sources:
-        sf = str(s.get("source_file", "Tài liệu")).strip() or "Tài liệu"
-        pg = s.get("page")
-        labels.append(f"{sf} — Trang {pg}" if pg not in (None, "", "?") else sf)
-    return "Nguồn: " + (", ".join(dict.fromkeys(labels)) or "N/A")
-
-def _doc_snippet(doc, max_len=120) -> dict:
-    """Build a debug-friendly doc dict."""
-    meta = doc.metadata or {}
-    raw_page = meta.get("page", 0)
-    page = raw_page + 1 if isinstance(raw_page, int) else (raw_page or "?")
-    fname = str(meta.get("filename") or meta.get("source") or "?").split("/")[-1]
-    text = (doc.page_content or "")[:max_len].replace("\n", " ")
-    return {"file": fname, "page": page, "snippet": text}
+# Warm up cached resources ngay khi app start — tránh delay ở lần query đầu tiên
+from src.model_layer.cache import get_cached_embedder, get_cached_llm
+get_cached_embedder()
+get_cached_llm(temperature=0.7)
+get_cached_llm(temperature=0.1)
+get_cached_llm(temperature=0.3)
 
 # ── State ────────────────────────────────────────────────────────────
 for k, v in {"dark_mode": False, "sidebar_collapsed": False,
              "answer": None, "processing_step": 0, "vector_db": None,
              "uploaded_signature": None, "active_conversation_id": None,
-             "chunk_size": 1000, "chunk_overlap": 150,
+             "chunk_size": 500, "chunk_overlap": 100,  # Optimized: 1000→500, 150→100
              "search_mode": "semantic", "use_rerank": False, "use_selfrag": False,
              "last_query_fingerprint": None, "benchmark_log": [],
-             "file_count": 0, "debug_info": None}.items():
+             "file_count": 0, "debug_info": None,
+             "processed_files": {}, "chunk_count": 0}.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
@@ -80,14 +56,23 @@ if st.session_state.sidebar_collapsed:
               clr_hist=False, clr_vec=False, cs=st.session_state.chunk_size,
               co=st.session_state.chunk_overlap, search_mode=st.session_state.search_mode,
               use_rerank=st.session_state.use_rerank, use_selfrag=st.session_state.use_selfrag,
-              files=None)
+              files=None, show_graph=False)
     sb["toggle"] = render_collapsed_sidebar_toggle()
 else:
+    # Tính index_status và graph_stats để truyền vào sidebar
+    _vdb = st.session_state.vector_db
+    _step = st.session_state.processing_step
+    _index_status = "cached" if _vdb is not None else ("processing" if _step == 2 else "none")
+    _graph_stats = get_graph_stats(_vdb) if _vdb is not None else {"nodes": 0, "edges": 0}
+
     sb = render_sidebar(
         chat_history=hist, active_conversation_id=st.session_state.active_conversation_id,
         dark_mode=st.session_state.dark_mode, chunk_size=st.session_state.chunk_size,
         chunk_overlap=st.session_state.chunk_overlap, search_mode=st.session_state.search_mode,
         use_rerank=st.session_state.use_rerank, use_selfrag=st.session_state.use_selfrag,
+        index_status=_index_status,
+        chunk_count=st.session_state.chunk_count,
+        graph_stats=_graph_stats,
     )
 
 st.session_state.chunk_size = sb["cs"]
@@ -95,7 +80,6 @@ st.session_state.chunk_overlap = sb["co"]
 st.session_state.search_mode = sb["search_mode"]
 st.session_state.use_rerank = sb["use_rerank"]
 st.session_state.use_selfrag = sb["use_selfrag"]
-files = sb["files"]
 
 # ── Sidebar actions ──────────────────────────────────────────────────
 if sb["toggle"]:
@@ -107,7 +91,8 @@ if sb["clr_vec"]:
     if clear_vector_store_directory():
         st.session_state.vector_db = None; st.session_state.uploaded_signature = None
         st.session_state.processing_step = 0; st.session_state.file_count = 0
-        st.session_state.debug_info = None; st.toast("Đã xóa Vector Store."); st.rerun()
+        st.session_state.debug_info = None; st.session_state.processed_files = {}
+        st.toast("Đã xóa Vector Store."); st.rerun()
     else:
         st.error("Không thể xóa Vector Store.")
 if sb["delete"]:
@@ -138,10 +123,20 @@ if dm != st.session_state.dark_mode:
     st.session_state.dark_mode = dm; st.rerun()
 
 render_status_bar(st.session_state.vector_db, st.session_state.processing_step,
-                  st.session_state.file_count, st.session_state.search_mode,
-                  st.session_state.use_rerank, st.session_state.use_selfrag)
+                  st.session_state.file_count)
 
 # ── Upload ───────────────────────────────────────────────────────────
+if not st.session_state.vector_db:
+    st.markdown('<div style="text-align: center; margin: 4rem 0; padding: 2rem; border: 2px dashed #10A37F; border-radius: 1rem; background: rgba(16,163,127,0.05);">', unsafe_allow_html=True)
+    st.markdown("### 📄 Kéo thả tài liệu để kích hoạt SmartDoc AI")
+    files = st.file_uploader("Upload", type=["pdf", "docx"], accept_multiple_files=True, label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
+else:
+    with st.expander("📄 Quản lý tài liệu", expanded=False):
+        files = st.file_uploader("Upload", type=["pdf", "docx"], accept_multiple_files=True, label_visibility="collapsed")
+    if files:
+        st.success(f"✅ Đã tải lên tài liệu: {', '.join(f.name for f in files)}")
+
 if files:
     valid = [f for f in files if f.size <= MAX_MB * 1024 * 1024]
     for f in files:
@@ -155,23 +150,39 @@ if files:
                 pdf_dir = Path("data/documents"); pdf_dir.mkdir(parents=True, exist_ok=True)
                 idx_dir = Path("data/faiss_index") / hashlib.md5(sig.encode()).hexdigest()
                 idx_dir.parent.mkdir(parents=True, exist_ok=True)
-                paths = []
-                for f in valid:
-                    p = pdf_dir / Path(f.name).name; p.write_bytes(f.getvalue()); paths.append(str(p))
-                st.session_state.processing_step = 2
-                with st.spinner(f"Đang xử lý {len(paths)} tài liệu..."):
-                    vdb, stats = process_multiple_files_to_vectorstore(paths, str(idx_dir), sb["cs"], sb["co"])
-                st.session_state.vector_db = vdb
-                st.session_state.processing_step = 3
-                st.session_state.uploaded_signature = sig
-                st.session_state.file_count = len(paths)
-                st.session_state.benchmark_log.append({
-                    "benchmark_type": "chunk", "chunk_size": stats.get("chunk_size"),
-                    "chunk_overlap": stats.get("chunk_overlap"), "chunks": stats.get("chunk_count"),
-                    "time": stats.get("total_time_sec"),
-                })
-                st.toast(f"Upload xong: {len(paths)} file, {stats.get('chunk_count', '?')} chunks")
-                st.rerun()
+
+                # Kiểm tra cache: nếu index đã tồn tại trên disk thì load lại,
+                # không cần chunking + embedding lại từ đầu
+                cached_vdb = load_if_exists(str(idx_dir), get_embeddings())
+                if cached_vdb is not None:
+                    st.session_state.vector_db = cached_vdb
+                    st.session_state.processing_step = 3
+                    st.session_state.uploaded_signature = sig
+                    st.session_state.file_count = len(valid)
+                    st.session_state.processed_files[sig] = str(idx_dir)
+                    st.toast(f"Đã tải index từ cache: {len(valid)} file")
+                    st.rerun()
+                else:
+                    # Lần đầu xử lý: lưu file lên disk rồi build index mới
+                    paths = []
+                    for f in valid:
+                        p = pdf_dir / Path(f.name).name; p.write_bytes(f.getvalue()); paths.append(str(p))
+                    st.session_state.processing_step = 2
+                    with st.spinner("Đang xử lý tài liệu..."):
+                        vdb, stats = process_multiple_files_to_vectorstore(paths, str(idx_dir), sb["cs"], sb["co"])
+                    st.session_state.vector_db = vdb
+                    st.session_state.processing_step = 3
+                    st.session_state.uploaded_signature = sig
+                    st.session_state.file_count = len(paths)
+                    st.session_state.chunk_count = stats.get("chunk_count", 0)
+                    st.session_state.processed_files[sig] = str(idx_dir)
+                    st.session_state.benchmark_log.append({
+                        "benchmark_type": "chunk", "chunk_size": stats.get("chunk_size"),
+                        "chunk_overlap": stats.get("chunk_overlap"), "chunks": stats.get("chunk_count"),
+                        "time": stats.get("total_time_sec"),
+                    })
+                    st.toast(f"Upload xong: {len(paths)} file, {stats.get('chunk_count', '?')} chunks")
+                    st.rerun()
             except Exception as exc:
                 st.session_state.processing_step = 0; st.session_state.vector_db = None
                 st.error(f"Lỗi xử lý: {exc}")
@@ -182,6 +193,11 @@ if st.session_state.vector_db is not None and st.session_state.file_count > 1:
     with st.expander("Bộ lọc tài liệu", expanded=False):
         meta_filter = render_doc_filter(st.session_state.vector_db)
 
+# ── Knowledge Graph ───────────────────────────────────────────────────
+if sb.get("show_graph") and st.session_state.vector_db is not None:
+    with st.expander("🕸️ Knowledge Graph", expanded=True):
+        render_graph_from_vector_store(st.session_state.vector_db, height="480px")
+
 # ── Chat history ─────────────────────────────────────────────────────
 if st.session_state.active_conversation_id:
     conv = get_conversation(st.session_state.active_conversation_id)
@@ -190,7 +206,26 @@ if st.session_state.active_conversation_id:
         render_chat_messages(msgs)
 
 # ── Input ────────────────────────────────────────────────────────────
-question, send_clicked, compare_clicked = render_qa_input()
+# Use columns for input + buttons
+col_input, col_submit, col_compare = st.columns([6, 1, 1])
+
+with col_input:
+    question = st.text_input(
+        "Nhập câu hỏi về tài liệu...",
+        key="question_input_field",
+        label_visibility="collapsed",
+        placeholder="Nhập câu hỏi về tài liệu..."
+    )
+
+with col_submit:
+    send_clicked = st.button("📤 Gửi", use_container_width=True, type="primary")
+
+with col_compare:
+    compare_clicked = st.button("⚡ Compare", use_container_width=True, help="So sánh RAG vs GraphRAG")
+
+# Store question for later use
+if send_clicked or compare_clicked:
+    st.session_state.question_input = question
 
 
 
@@ -211,45 +246,47 @@ if send_clicked or compare_clicked:
             ctx = actv.get("messages", []) if actv else []
             graph_cmp = None
 
-            with st.spinner("Đang phân tích..."):
+            with st.status("Đang xử lý...", expanded=True) as status:
+                st.write("🔍 Đang tìm tài liệu...")
                 if compare_clicked:
-                    # RAG vs GraphRAG comparison
-                    t0 = time.perf_counter()
-                    vr, vs, vdbg = run_pipeline(question, st.session_state.vector_db, ctx,
-                                                 st.session_state.search_mode,
-                                                 st.session_state.use_rerank,
-                                                 st.session_state.use_selfrag)
-                    vt = time.perf_counter() - t0
-                    gm = importlib.import_module("src.application.chain_graphrag")
-                    t0 = time.perf_counter()
-                    gr, gs, gst = gm.get_answer_with_graphrag_citation(question, st.session_state.vector_db, chat_history=ctx)
-                    gt = time.perf_counter() - t0
-                    vsn = normalize_sources(vs); gsn = normalize_sources(gs)
-                    olap = len(set((s["source_file"], s["page"]) for s in vsn) & set((s["source_file"], s["page"]) for s in gsn))
-                    graph_cmp = {
-                        "query": question,
-                        "vector": {"text": vr, "source": build_source_text(vsn), "sources": vsn, "query": question, "time": round(vt, 2)},
-                        "graphrag": {"text": gr, "source": build_source_text(gsn), "sources": gsn, "query": question, "time": round(gt, 2)},
-                        "overlap": olap,
-                    }
-                    st.session_state.benchmark_log.append({
-                        "benchmark_type": "compare",
-                        "query": question[:30] + "..." if len(question) > 30 else question,
-                        "rag_time": round(vt, 2),
-                        "graphrag_time": round(gt, 2),
-                        "rag_sources": len(vsn),
-                        "graphrag_sources": len(gsn),
-                        "overlap": olap,
-                    })
-                    response, raw_sources, debug = vr, vs, vdbg
-                else:
-                    response, raw_sources, debug = run_pipeline(
+                    st.write("⚖️ Đang so sánh RAG vs GraphRAG...")
+                    # Use query_handler for comparison
+                    response, sources, src_text, debug, graph_cmp = handle_comparison_query(
                         question, st.session_state.vector_db, ctx,
-                        st.session_state.search_mode, st.session_state.use_rerank,
-                        st.session_state.use_selfrag, meta_filter=meta_filter)
-
-            sources = normalize_sources(raw_sources)
-            src_text = build_source_text(sources)
+                        st.session_state.search_mode,
+                        st.session_state.use_rerank,
+                        st.session_state.use_selfrag
+                    )
+                    
+                    # Log benchmark
+                    st.session_state.benchmark_log.append(create_benchmark_log_entry(
+                        "compare",
+                        question,
+                        rag_time=graph_cmp["vector"]["time"],
+                        graphrag_time=graph_cmp["graphrag"]["time"],
+                        parallel_time=graph_cmp["parallel_time"],
+                        time_saved=graph_cmp["vector"]["time"] + graph_cmp["graphrag"]["time"] - graph_cmp["parallel_time"],
+                        rag_sources=len(sources),
+                        graphrag_sources=len(graph_cmp["graphrag"]["sources"]),
+                        overlap=graph_cmp["overlap"],
+                    ))
+                    
+                    status.update(
+                        label=f"✅ Đã phân tích {len(sources)} nguồn RAG & {len(graph_cmp['graphrag']['sources'])} nguồn GraphRAG",
+                        state="complete",
+                        expanded=False
+                    )
+                else:
+                    st.write("🧠 Phân tích nội dung...")
+                    # Use query_handler for standard query
+                    response, sources, src_text, debug = handle_standard_query(
+                        question, st.session_state.vector_db, ctx,
+                        st.session_state.search_mode,
+                        st.session_state.use_rerank,
+                        st.session_state.use_selfrag,
+                        meta_filter=meta_filter
+                    )
+                    status.update(label=f"✅ Tìm thấy {len(sources)} nguồn", state="complete", expanded=False)
 
             if not compare_clicked:
                 cid = st.session_state.active_conversation_id
@@ -265,6 +302,7 @@ if send_clicked or compare_clicked:
             st.session_state.answer = {
                 "text": response, "source": src_text, "sources": sources, "query": question,
                 "graph_comparison": graph_cmp,
+                "debug_info": debug,  # Pass debug info to answer for rendering
             }
             st.session_state.debug_info = debug
             st.session_state.last_query_fingerprint = fp
@@ -287,48 +325,3 @@ if st.session_state.answer:
         with st.chat_message("assistant"):
             render_citation(ap, key_prefix="main")
 
-# ── Debug panel ──────────────────────────────────────────────────────
-render_debug_panel(st.session_state.debug_info)
-
-# ── Benchmark ────────────────────────────────────────────────────────
-def get_text_export(logs):
-    chunk_logs = [l for l in logs if l.get("benchmark_type") == "chunk"]
-    compare_logs = [l for l in logs if l.get("benchmark_type") == "compare"]
-    out = []
-    
-    if chunk_logs:
-        out.append("=== BẢNG ĐÁNH GIÁ CHUNKING ===")
-        out.append("| Chunk Size | Overlap | Chunks Count | Time (s) |")
-        out.append("|---|---|---|---|")
-        for log in chunk_logs:
-            out.append(f"| {log.get('chunk_size')} | {log.get('chunk_overlap')} | {log.get('chunks')} | {log.get('time')} |")
-        out.append("")
-        
-    if compare_logs:
-        out.append("=== BẢNG SO SÁNH RAG VS GRAPHRAG ===")
-        out.append("| Query | RAG Time (s) | GraphRAG Time (s) | RAG Sources | GraphRAG Sources | Overlap |")
-        out.append("|---|---|---|---|---|---|")
-        for log in compare_logs:
-            q = str(log.get('query', '')).replace('\n', ' ')
-            out.append(f"| {q} | {log.get('rag_time')} | {log.get('graphrag_time')} | {log.get('rag_sources')} | {log.get('graphrag_sources')} | {log.get('overlap')} |")
-        out.append("")
-        
-        out.append("=== DỮ LIỆU VẼ BIỂU ĐỒ (PGFPLOTS / EXCEL) ===")
-        out.append("X (Câu hỏi)\\tRAG Time\\tGraphRAG Time")
-        for i, log in enumerate(compare_logs):
-            out.append(f"Q{i+1}\\t{log.get('rag_time')}\\t{log.get('graphrag_time')}")
-        out.append("")
-        
-    return "\n".join(out)
-
-with st.expander("Benchmark & Export Data", expanded=False):
-    logs = st.session_state.get("benchmark_log", [])
-    if not logs:
-        st.caption("Chưa có dữ liệu.")
-    else:
-        st.dataframe(logs[-10:], use_container_width=True)
-        st.markdown("### Dữ liệu thô (Raw Text)")
-        st.caption("Bạn có thể copy đoạn text dưới đây để vẽ biểu đồ LaTeX/Excel sau.")
-        text_str = get_text_export(logs)
-        if text_str:
-            st.code(text_str, language="markdown")

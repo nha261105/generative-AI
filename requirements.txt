@@ -11,3 +11,5 @@ pandas
 python-docx
 streamlit-copy-to-clipboard
 rank_bm25
+pyvis
+networkx

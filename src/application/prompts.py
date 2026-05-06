@@ -59,34 +59,72 @@ SELF_RAG_EVAL_PROMPT_TEMPLATE = """
 Bạn là bộ đánh giá chất lượng câu trả lời RAG.
 Nhiệm vụ: đánh giá câu trả lời hiện tại có đủ bằng chứng từ context hay không.
 
-YÊU CẦU ĐẦU RA:
-- Chỉ trả về JSON hợp lệ, không giải thích thêm.
-- JSON phải có đúng các key sau:
-  - confidence: số thực từ 0 đến 1
-  - needs_rewrite: true/false
-  - rewritten_query: chuỗi (nếu không cần rewrite thì để rỗng "")
-  - rationale: chuỗi ngắn
+QUY TẮC ĐẦU RA BẮT BUỘC:
+- Chỉ trả về MỘT object JSON hợp lệ duy nhất, KHÔNG có text nào trước hoặc sau.
+- Không giải thích, không markdown, không code block.
+- Đúng format sau (thay giá trị, giữ nguyên key):
+
+{{"confidence": 0.85, "needs_rewrite": false, "rewritten_query": "", "rationale": "Câu trả lời bám sát context"}}
+
+ĐỊNH NGHĨA CÁC KEY:
+- confidence (float 0-1): mức độ câu trả lời có căn cứ từ context. <0.5 = thiếu bằng chứng.
+- needs_rewrite (bool): true nếu câu hỏi gốc cần viết lại để truy xuất tốt hơn.
+- rewritten_query (string): câu hỏi viết lại rõ nghĩa hơn, hoặc "" nếu không cần.
+- rationale (string): lý do ngắn gọn (tối đa 20 từ).
 
 TIÊU CHÍ:
-- Nếu câu trả lời thiếu căn cứ, mơ hồ, hoặc không bám context thì confidence thấp.
-- Nếu câu hỏi chưa rõ/thiếu từ khóa để truy xuất tốt hơn thì needs_rewrite=true.
-- rewritten_query phải là phiên bản rõ nghĩa hơn, thêm từ khóa cụ thể để truy xuất tài liệu.
+- Câu trả lời thiếu căn cứ, mơ hồ, không bám context → confidence thấp.
+- Câu hỏi thiếu từ khóa để truy xuất tốt hơn → needs_rewrite=true.
 
 ---
-QUESTION:
-{question}
-
-CONTEXT:
-{context}
-
-CURRENT_ANSWER:
-{answer}
+QUESTION: {question}
+CONTEXT: {context}
+CURRENT_ANSWER: {answer}
 ---
-"""
+
+JSON:"""
 
 
 def get_self_rag_eval_prompt():
     return ChatPromptTemplate.from_template(SELF_RAG_EVAL_PROMPT_TEMPLATE)
+
+
+# NEW: Combined eval + rewrite prompt (Phase 2 optimization)
+SELF_RAG_EVAL_AND_REWRITE_PROMPT_TEMPLATE = """
+Bạn là bộ đánh giá chất lượng câu trả lời RAG.
+Nhiệm vụ: đánh giá câu trả lời VÀ đề xuất query rewrite (nếu cần) trong MỘT lần.
+
+QUY TẮC ĐẦU RA BẮT BUỘC:
+- Chỉ trả về MỘT object JSON hợp lệ duy nhất, KHÔNG có text nào trước hoặc sau.
+- Không giải thích, không markdown, không code block.
+- Đúng format sau (thay giá trị, giữ nguyên key):
+
+{{"confidence": 0.85, "needs_rewrite": false, "rewritten_query": "", "rationale": "Câu trả lời bám sát context"}}
+
+ĐỊNH NGHĨA CÁC KEY:
+- confidence (float 0-1): mức độ câu trả lời có căn cứ từ context. <0.5 = thiếu bằng chứng.
+- needs_rewrite (bool): true nếu câu hỏi gốc cần viết lại để truy xuất tốt hơn.
+- rewritten_query (string): câu hỏi viết lại RÕ NGHĨA HƠN, đầy đủ ngữ cảnh từ chat history. Để "" nếu không cần rewrite.
+- rationale (string): lý do ngắn gọn (tối đa 20 từ).
+
+TIÊU CHÍ ĐÁNH GIÁ:
+- Câu trả lời thiếu căn cứ, mơ hồ, không bám context → confidence thấp, needs_rewrite=true.
+- Câu hỏi thiếu từ khóa hoặc dùng đại từ ("nó", "anh ấy", "đó") → needs_rewrite=true, viết lại với context từ chat history.
+- Nếu needs_rewrite=true, BẮT BUỘC phải cung cấp rewritten_query cụ thể.
+
+---
+QUESTION GỐC: {question}
+CHAT HISTORY: {chat_history}
+CONTEXT: {context}
+CURRENT_ANSWER: {answer}
+---
+
+JSON:"""
+
+
+def get_self_rag_eval_and_rewrite_prompt():
+    """Combined eval + rewrite prompt to reduce LLM calls."""
+    return ChatPromptTemplate.from_template(SELF_RAG_EVAL_AND_REWRITE_PROMPT_TEMPLATE)
 
 
 SELF_RAG_REWRITE_PROMPT_TEMPLATE = """

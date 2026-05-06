@@ -333,6 +333,37 @@ div[data-testid="stTextInput"] > div > div > input:focus {
 /* ── Misc ─────────────────────────────────────────── */
 div[data-testid="stSidebarUserContent"] { padding-bottom: 0.8rem !important; }
 
+/* ── Index status badge ───────────────────────────── */
+.index-badge {
+    display: inline-flex; align-items: center; gap: 0.4rem;
+    padding: 0.3rem 0.65rem; border-radius: 0.5rem;
+    font-size: 0.72rem; font-weight: 600;
+    margin: 0.4rem 0 0.2rem; width: 100%;
+    border: 1px solid transparent;
+}
+.index-cached    { background: rgba(16,163,127,0.12); border-color: rgba(16,163,127,0.3); color: #10A37F !important; }
+.index-processing{ background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.3); color: #F59E0B !important; }
+.index-none      { background: rgba(155,155,155,0.1); border-color: rgba(155,155,155,0.2); color: #9B9B9B !important; }
+
+/* ── Citation score bar ───────────────────────────── */
+.score-row {
+    display: flex; align-items: center; gap: 0.5rem;
+    margin: 0.3rem 0 0.1rem;
+}
+.score-label {
+    font-size: 0.68rem; font-weight: 600; color: __SUBTEXT__;
+    min-width: 80px;
+}
+.score-na { font-size: 0.68rem; color: __SUBTEXT__; }
+.score-bar-wrap {
+    flex: 1; height: 5px; background: rgba(155,155,155,0.2);
+    border-radius: 3px; overflow: hidden;
+}
+.score-bar-fill {
+    height: 100%; border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
 __SIDEBAR_CSS__
 </style>
 """

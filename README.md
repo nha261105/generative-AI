@@ -308,46 +308,96 @@ ollama serve
 
 ---
 
+## 🧪 Testing
+
+### Tài liệu Testing đầy đủ
+
+Hệ thống có bộ tài liệu testing hoàn chỉnh với 16 test cases cho 4 features chính:
+
+📚 **Bắt đầu từ đây:** [`TESTING_INDEX.md`](TESTING_INDEX.md)
+
+### Quick Testing Guide
+
+#### 1. Kiểm tra môi trường test
+```bash
+python3 prepare_test_data.py
+```
+
+#### 2. Chọn phương pháp test
+
+**Option A: Quick Test (5 phút)**
+```bash
+# Đọc quick guide
+cat TESTING_QUICK_GUIDE.md
+
+# Chạy app và test manual
+streamlit run app.py
+```
+
+**Option B: Automated Test (30 phút)**
+```bash
+# Chạy automated test suite
+python3 run_tests.py
+```
+
+**Option C: Full Manual Test (2 giờ)**
+```bash
+# Đọc full testing guide
+cat TESTING.md
+
+# Test từng feature chi tiết theo guide
+```
+
+### Test Coverage
+
+| Feature | Test Cases | Documentation |
+|---------|-----------|---------------|
+| Base RAG | 4 | Semantic search, factoid questions |
+| Self-RAG | 4 | Query rewrite, multi-hop, confidence |
+| Hybrid Search | 4 | Technical terms, acronyms, keywords |
+| Conversational | 4 | Follow-up, context, pronouns |
+| **Total** | **16** | **Complete coverage** |
+
+### Test Documents
+
+Test data trong `data/documents/`:
+- ✅ Smart School Bus Tracking System.pdf
+- ✅ antigravity&cloud_research.pdf
+- ✅ TestPDF_RAG.pdf
+- ✅ Bản sao của Chương 3.pdf
+- ✅ CV tiếng Việt
+
+### Performance Logging
+
+Hệ thống có performance logging chi tiết:
+```bash
+# Xem terminal để thấy timing breakdown:
+⏱️  Embedding model loaded: X.XXs
+⏱️  Query embedding: X.XXs
+⏱️  Retrieval invoke: X.XXs
+⏱️  LLM invoke: X.XXs
+```
+
+Chi tiết: [`PERFORMANCE_LOGGING.md`](PERFORMANCE_LOGGING.md)
+
+### Testing Files
+
+- [`TESTING_INDEX.md`](TESTING_INDEX.md) - Navigation & overview
+- [`TESTING_SUMMARY.md`](TESTING_SUMMARY.md) - Quick summary
+- [`TESTING_QUICK_GUIDE.md`](TESTING_QUICK_GUIDE.md) - 5-minute guide
+- [`TESTING.md`](TESTING.md) - Full testing guide
+- [`TESTING_README.md`](TESTING_README.md) - Workflow & best practices
+- `prepare_test_data.py` - Environment checker
+- `run_tests.py` - Automated testing script
+- `test_checklist.md` - Progress tracking
+
+---
+
 ## Dọn dẹp môi trường
 
 ```bash
 make clean
-```
-
----
-
-## Checklist 10 yêu cầu phát triển (trạng thái hiện tại)
-
-| #   | Yêu cầu                                          | Trạng thái | Ghi chú ngắn                                                                                   |
-| --- | ------------------------------------------------ | ---------- | ---------------------------------------------------------------------------------------------- |
-| 1   | Hỗ trợ DOCX                                      | Not Done   | Chưa có pipeline/loader DOCX và UI upload DOCX trong code hiện tại                             |
-| 2   | Lưu trữ lịch sử hội thoại                        | Done       | Đã lưu/đọc/xóa từng cuộc hội thoại qua `data/history.py` + sidebar                             |
-| 3   | Clear History + Clear Vector Store (có xác nhận) | Partial    | Đã có xóa từng đoạn chat; chưa có nút clear toàn bộ history và clear vector store đúng yêu cầu |
-| 4   | Cải thiện chunk strategy (cho phép tùy chỉnh)    | Partial    | Đang chunk cố định; chưa có UI cho người dùng chỉnh `chunk_size`/`chunk_overlap`               |
-| 5   | Citation / Source tracking                       | Done       | Đã trả lời kèm nguồn trang và hiển thị context theo nguồn                                      |
-| 6   | Conversational RAG (memory trong chain)          | Partial    | Có lưu lịch sử chat, nhưng chain chưa dùng memory hội thoại để suy luận follow-up              |
-| 7   | Hybrid Search (Semantic + BM25)                  | Partial    | Có file `chain_hybrid.py` nhưng chưa tích hợp luồng chạy chính trong app                       |
-| 8   | Multi-document + metadata filtering              | Not Done   | Chưa có upload nhiều tài liệu + lọc theo metadata trong UI/chain                               |
-| 9   | Re-ranking với Cross-Encoder                     | Not Done   | Chưa có module rerank hoạt động trong repo hiện tại                                            |
-| 10  | Advanced RAG với Self-RAG                        | Not Done   | Chưa có module self-rag hoạt động trong repo hiện tại                                          |
-
-### Tổng quan nhanh
-
-- Done: 2/10 (yêu cầu 2, 5)
-- Partial: 4/10 (yêu cầu 3, 4, 6, 7)
-- Not Done: 4/10 (yêu cầu 1, 8, 9, 10)
-
-## Đề xuất thứ tự triển khai nhanh nhất theo effort
-
-1. Hoàn thiện yêu cầu 3 (Clear all history + clear vector store + hộp thoại xác nhận)
-2. Hoàn thiện yêu cầu 4 (thêm thanh chỉnh `chunk_size`/`chunk_overlap` trên UI)
-3. Hoàn thiện yêu cầu 6 (nối memory hội thoại vào chain để xử lý follow-up)
-4. Hoàn thiện yêu cầu 7 (kết nối hybrid retriever vào luồng hỏi đáp chính)
-5. Làm yêu cầu 1 (DOCX upload + loader + pipeline chung)
-6. Làm yêu cầu 8 (multi-document + metadata filter)
-7. Làm yêu cầu 9 (cross-encoder reranking)
-8. Làm yêu cầu 10 (self-rag: self-eval, rewrite query, confidence score)
-
+``` 
 ---
 
 ## License
